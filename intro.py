@@ -1,6 +1,2 @@
 def favFood():
-<<<<<<< HEAD
-    return [watermelon]
-=======
-    return "Burger"
->>>>>>> main
+    return "Watermelon and burger."
