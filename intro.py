@@ -1,2 +1,0 @@
-def favFood():
-    return [watermelon]
