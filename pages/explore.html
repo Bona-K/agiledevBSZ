@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-Hans">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Explore · MyVibe</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link rel="stylesheet" href="../assets/css/styles.css" />
+</head>
+
+<body data-page="explore" class="app-bg min-h-screen bg-slate-50 text-slate-900">
+    <header class="app-header sticky top-0 z-40 bg-white/70 backdrop-blur">
+        <div class="mx-auto flex w-[94vw] max-w-[1600px] items-center justify-between px-6 py-4">
+            <a href="../index.html" class="text-2xl brand-text">MyVibe</a>
+
+            <nav class="hidden items-center gap-2 sm:flex">
+                <a href="./dashboard.html"
+                    class="px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-400 hover:text-slate-900">Home</a>
+                <a href="./explore.html" class="bg-slate-900 px-4 py-2 text-sm font-medium text-white">Explore</a>
+                <a href="./create-route.html"
+                    class="px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-400 hover:text-slate-900">Create</a>
+                <a href="./profile.html"
+                    class="px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-400 hover:text-slate-900">Profile</a>
+            </nav>
+
+            <div class="flex items-center gap-3">
+                <button data-action="logout"
+                    class="pill-ghost px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-400">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="mx-auto w-[94vw] max-w-[1600px] px-6 py-10">
+        <section>
+            <div class="section-kicker">✨ trending this week</div>
+            <h1 class="mt-2 text-3xl font-semibold sm:text-4xl">What's the plan today? 🗺️</h1>
+            <p class="mt-2 text-sm text-slate-500">Find routes by mood, vibe, and quick tags in one tap.</p>
+        </section>
+
+        <section class="mt-6 rounded-3xl border border-slate-200 bg-white/70 p-5">
+            <div class="relative">
+                <input id="q" placeholder="Search routes, places, or moods..."
+                    class="explore-input w-full px-5 py-3 pr-28 text-sm text-slate-900 outline-none" />
+                <button id="searchBtn" type="button"
+                    class="pill-solid absolute right-1.5 top-1.5 px-4 py-2 text-sm font-medium">search</button>
+            </div>
+            <div class="mt-3 flex flex-wrap items-center gap-3">
+                <div class="text-xs text-slate-500">sort by</div>
+                <select id="sort" class="explore-input px-4 py-2 text-sm text-slate-700 outline-none">
+                    <option value="latest">latest</option>
+                    <option value="liked">most liked</option>
+                </select>
+            </div>
+
+            <div class="mt-5">
+                <div class="section-kicker !pt-0">🎯 pick a vibe</div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button data-tag="" class="filter-chip is-selected px-3 py-1.5 text-xs font-medium">✨ all</button>
+                    <button data-tag="cafe" class="filter-chip px-3 py-1.5 text-xs font-medium">☕ coffee crawl</button>
+                    <button data-tag="date" class="filter-chip px-3 py-1.5 text-xs font-medium">🌙 date night</button>
+                    <button data-tag="cheap" class="filter-chip px-3 py-1.5 text-xs font-medium">💸 budget day</button>
+                    <button data-tag="sunset" class="filter-chip px-3 py-1.5 text-xs font-medium">🌇 sunset
+                        spots</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="mt-7">
+            <div class="section-kicker !pt-0">✨ routes for you</div>
+            <div id="exploreGrid" class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"></div>
+            <div class="mt-4 flex justify-center">
+                <button id="exploreLoadMore" type="button"
+                    class="pill-ghost px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-400">
+                    load more
+                </button>
+            </div>
+        </section>
+
+        <section class="mt-7">
+            <div class="section-kicker !pt-0">🎨 mood board</div>
+            <div id="vibeGrid" class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <button data-theme="date" class="vibeTile vibe-tile p-4 text-left"
+                    style="background:#fce7f3;border-color:#f9a8d4;">
+                    <div class="text-center text-2xl">🌙</div>
+                    <div class="mt-2 text-center text-xs font-medium text-slate-700">date night</div>
+                </button>
+                <button data-theme="picnic" class="vibeTile vibe-tile p-4 text-left"
+                    style="background:#fef3c7;border-color:#fcd34d;">
+                    <div class="text-center text-2xl">☕</div>
+                    <div class="mt-2 text-center text-xs font-medium text-slate-700">coffee run</div>
+                </button>
+                <button data-theme="active" class="vibeTile vibe-tile p-4 text-left"
+                    style="background:#dcfce7;border-color:#86efac;">
+                    <div class="text-center text-2xl">🎒</div>
+                    <div class="mt-2 text-center text-xs font-medium text-slate-700">adventure</div>
+                </button>
+                <button data-theme="hidden" class="vibeTile vibe-tile p-4 text-left"
+                    style="background:#ede9fe;border-color:#c4b5fd;">
+                    <div class="text-center text-2xl">🎨</div>
+                    <div class="mt-2 text-center text-xs font-medium text-slate-700">culture</div>
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <script src="../assets/js/interactions.js"></script>
+    <script src="../assets/js/pages/explore.js"></script>
+</body>
+
+</html>
