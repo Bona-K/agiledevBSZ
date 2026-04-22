@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}MyVibe{% endblock %}</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body data-page="{% block data_page %}{% endblock %}" class="app-bg min-h-screen bg-slate-50 text-slate-900">
+
+    {% block header %}
+    <header class="app-header sticky top-0 z-40 bg-white/70 backdrop-blur">
+      <div class="mx-auto flex w-[94vw] max-w-[1600px] items-center justify-between px-6 py-4">
+        <a href="{{ url_for('index') }}" class="text-2xl brand-text">MyVibe</a>
+
+        <nav class="hidden items-center gap-1 sm:flex">
+          <a href="{{ url_for('dashboard') }}"
+             class="rounded-xl px-3 py-2 text-sm font-semibold {% if active_page == 'dashboard' %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-white hover:text-slate-900{% endif %}">
+            Home
+          </a>
+          <a href="{{ url_for('explore') }}"
+             class="rounded-xl px-3 py-2 text-sm font-semibold {% if active_page == 'explore' %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-white hover:text-slate-900{% endif %}">
+            Explore
+          </a>
+          <a href="{{ url_for('create_route') }}"
+             class="rounded-xl px-3 py-2 text-sm font-semibold {% if active_page == 'create' %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-white hover:text-slate-900{% endif %}">
+            Create
+          </a>
+          <a href="{{ url_for('profile') }}"
+             class="rounded-xl px-3 py-2 text-sm font-semibold {% if active_page == 'profile' %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-white hover:text-slate-900{% endif %}">
+            Profile
+          </a>
+        </nav>
+
+        <div class="flex items-center gap-3">
+          <button
+            data-action="logout"
+            class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </header>
+    {% endblock %}
+
+    {% block content %}{% endblock %}
+
+    {% block toast %}
+    <div
+      id="toast"
+      class="toast fixed bottom-6 left-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 rounded-2xl px-4 py-3 text-sm font-medium text-white shadow-lg"
+    >
+      <div class="flex items-center justify-between gap-3">
+        <div data-toast-text>—</div>
+        <button
+          type="button"
+          class="rounded-xl bg-white/15 px-3 py-1 text-xs font-semibold text-white hover:bg-white/20"
+          onclick="document.getElementById('toast').classList.remove('is-visible')"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+    {% endblock %}
+
+    <script>
+      window.MYVIBE_BOOTSTRAP = {
+        isAuthenticated: {{ (server_username is not none)|tojson }},
+        username: {{ server_username|tojson }}
+      };
+    </script>
+    <script src="{{ url_for('static', filename='js/interactions.js') }}"></script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

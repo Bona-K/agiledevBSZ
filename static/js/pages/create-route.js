@@ -233,7 +233,7 @@
         C.writeStore(C.STORAGE_KEYS.routes, routes);
         C.showToast("Route updated (mock).", "success");
         window.setTimeout(() => {
-          window.location.href = `../pages/route.html?r=${encodeURIComponent(editingRoute.id)}`;
+          window.location.href = C.routeDetailUrl(editingRoute.id);
         }, 350);
         return;
       }
@@ -256,7 +256,7 @@
       C.writeStore(C.STORAGE_KEYS.routes, routes);
       C.showToast("Route saved (mock).", "success");
       window.setTimeout(() => {
-        window.location.href = `../pages/route.html?r=${encodeURIComponent(route.id)}`;
+        window.location.href = C.routeDetailUrl(route.id);
       }, 350);
     });
 

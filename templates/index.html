@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}MyVibe · Plan your perfect day{% endblock %}
+{% block data_page %}home{% endblock %}
+
+{% block header %}{% endblock %}{# No nav header on landing page #}
+
+{% block content %}
+<main class="mx-auto flex min-h-screen w-[94vw] max-w-[1600px] items-center px-6 py-16">
+  <div class="grid w-full items-center gap-10 lg:grid-cols-2">
+    <section>
+      <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm backdrop-blur">
+        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+        MyVibe static frontend scaffold
+      </div>
+      <h1 class="mt-5 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Plan your perfect day</h1>
+      <p class="mt-4 max-w-xl text-base leading-7 text-slate-700">
+        Build, save and share one-day route plans. Explore themed routes made by other users.
+      </p>
+
+      <div class="mt-8 flex flex-wrap items-center gap-3">
+        <a class="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+           href="{{ url_for('login') }}">Login</a>
+        <a class="rounded-xl border border-slate-200 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-900 shadow-sm backdrop-blur transition hover:bg-white"
+           href="{{ url_for('signup') }}">Sign up</a>
+      </div>
+
+      <div class="mt-10 grid gap-3 sm:grid-cols-3">
+        <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur">
+          <div class="text-xs font-semibold text-slate-600">Themes</div>
+          <div class="mt-1 text-2xl font-semibold">Vibes</div>
+          <div class="mt-1 text-sm text-slate-600">date / picnic / active / hidden gems</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur">
+          <div class="text-xs font-semibold text-slate-600">Explore</div>
+          <div class="mt-1 text-2xl font-semibold">Explore</div>
+          <div class="mt-1 text-sm text-slate-600">Search, tags and theme filters</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur">
+          <div class="text-xs font-semibold text-slate-600">Create</div>
+          <div class="mt-1 text-2xl font-semibold">Create</div>
+          <div class="mt-1 text-sm text-slate-600">Simple route form with timeline stops</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="lg:justify-self-end">
+      <div class="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-md backdrop-blur">
+        <div class="flex items-start justify-between gap-6">
+          <div>
+            <div class="text-sm font-semibold text-slate-900">Quick Start</div>
+            <div class="mt-1 text-sm text-slate-600">Checkpoint 2 focused pages</div>
+          </div>
+          <div class="rounded-2xl bg-slate-900 px-3 py-1 text-xs font-semibold text-white">UI scaffold</div>
+        </div>
+
+        <div class="mt-6 grid gap-3">
+          <a class="group rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-sm"
+             href="{{ url_for('login') }}">
+            <div class="flex items-center justify-between">
+              <div class="text-sm font-semibold text-slate-900 group-hover:text-sky-800">Auth</div>
+              <div class="text-xs font-medium text-slate-500">login / signup</div>
+            </div>
+            <div class="mt-1 text-sm text-slate-600">Login + signup flow (mock)</div>
+          </a>
+          <a class="group rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-sm"
+             href="{{ url_for('dashboard') }}">
+            <div class="flex items-center justify-between">
+              <div class="text-sm font-semibold text-slate-900 group-hover:text-sky-800">Home</div>
+              <div class="text-xs font-medium text-slate-500">recommended</div>
+            </div>
+            <div class="mt-1 text-sm text-slate-600">Recommended routes and create CTA</div>
+          </a>
+          <a class="group rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-sm"
+             href="{{ url_for('explore') }}">
+            <div class="flex items-center justify-between">
+              <div class="text-sm font-semibold text-slate-900 group-hover:text-sky-800">Explore</div>
+              <div class="text-xs font-medium text-slate-500">search</div>
+            </div>
+            <div class="mt-1 text-sm text-slate-600">Search and filter route cards</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}
+
+{% block toast %}{% endblock %}{# No toast on landing page #}
+{% block scripts %}{% endblock %}
