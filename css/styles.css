@@ -1,0 +1,179 @@
+:root {
+  color-scheme: light;
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f8fafc;
+  --color-border-primary: rgba(15, 23, 42, 0.12);
+  --color-border-secondary: rgba(15, 23, 42, 0.2);
+}
+
+/* Smooth, minimal defaults (keep it small; Tailwind does most styling) */
+html,
+body {
+  height: 100%;
+  background-color: #f8fafc;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+    Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  font-weight: 400;
+  color: #0f172a;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.025em;
+}
+
+.brand-text {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  background-image: linear-gradient(90deg, #f59e0b, #ec4899, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Subtle background pattern */
+.app-bg {
+  background-color: #f8fafc;
+  background-image: radial-gradient(
+      circle at 10% 20%,
+      rgba(56, 189, 248, 0.18),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 90% 10%,
+      rgba(168, 85, 247, 0.16),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 40% 90%,
+      rgba(34, 197, 94, 0.12),
+      transparent 40%
+    );
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-size: cover;
+}
+
+/* Softer sticky header divider while scrolling */
+.app-header {
+  border-bottom: 0.5px solid rgba(15, 23, 42, 0.1);
+}
+
+.app-header nav a {
+  border-radius: 999px;
+  border: 0.5px solid var(--color-border-primary);
+  background: var(--color-background-primary);
+}
+
+.app-header nav a.bg-slate-900 {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+
+.pill-ghost {
+  border-radius: 999px;
+  border: 0.5px solid var(--color-border-primary);
+  background: var(--color-background-primary);
+}
+
+.pill-solid {
+  border-radius: 999px;
+  border: 0.5px solid #0f172a;
+  background: #0f172a;
+  color: #fff;
+}
+
+.section-kicker {
+  padding-top: 28px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: lowercase;
+  color: #334155;
+}
+
+.explore-input {
+  border-radius: 999px;
+  border: 0.5px solid var(--color-border-primary);
+  background: var(--color-background-secondary);
+}
+
+.filter-chip {
+  border-radius: 999px;
+  border: 0.5px solid var(--color-border-primary);
+  background: #fff;
+  color: #475569;
+}
+
+.filter-chip:hover,
+.vibe-tile:hover,
+.route-card:hover,
+.pill-ghost:hover {
+  border-color: var(--color-border-secondary);
+}
+
+.filter-chip.is-selected {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.vibe-tile {
+  border-radius: 16px;
+  border: 0.5px solid var(--color-border-primary);
+  background: #fff;
+}
+
+.vibe-tile.is-selected {
+  border-color: var(--color-border-secondary);
+}
+
+.route-card {
+  border-radius: 16px;
+  border: 0.5px solid var(--color-border-primary);
+  background: var(--color-background-primary);
+}
+
+.route-thumb {
+  border-radius: 14px;
+  min-height: 120px;
+  border: 0.5px solid transparent;
+}
+
+.route-like-btn {
+  border-radius: 999px;
+  border: 0.5px solid var(--color-border-primary);
+  background: #fff;
+  color: #64748b;
+}
+
+.route-like-btn svg {
+  fill: transparent;
+  stroke: currentColor;
+}
+
+.route-like-btn.is-liked {
+  color: #f43f5e;
+}
+
+.route-like-btn.is-liked svg {
+  fill: #f43f5e;
+  stroke: #f43f5e;
+}
+
+/* Simple toast */
+.toast {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
