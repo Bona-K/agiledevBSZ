@@ -33,6 +33,55 @@
     global.localStorage.setItem(key, JSON.stringify(value));
   }
 
+  function serverBootstrap() {
+    return global.MYVIBE_BOOTSTRAP || {};
+  }
+
+  function appUrl(path) {
+    return path.startsWith("/") ? path : `/${path}`;
+  }
+
+  function routeDetailUrl(routeId) {
+    return appUrl(`route/${encodeURIComponent(routeId)}`);
+  }
+
+  function createRouteUrl(routeId, mode) {
+    const url = new URL(appUrl("create-route"), global.location.origin);
+    if (routeId) url.searchParams.set("r", routeId);
+    if (mode) url.searchParams.set("mode", mode);
+    return url.pathname + url.search;
+  }
+
+  function syncSessionWithServer() {
+    const bootstrap = serverBootstrap();
+    const username = String(bootstrap.username || "").trim().toLowerCase();
+    if (!bootstrap.isAuthenticated || !username) return null;
+
+    let users = readStore(STORAGE_KEYS.users, []);
+    let user = users.find((entry) => entry.username === username);
+
+    if (!user) {
+      user = {
+        id: "u_" + Math.floor(Math.random() * 1000000),
+        name: username,
+        username,
+        bio: "No bio yet.",
+        joinedAt: nowIso(),
+      };
+      users = users.concat(user);
+      writeStore(STORAGE_KEYS.users, users);
+    }
+
+    const nextSession = {
+      userId: user.id,
+      username: user.username,
+      name: user.name,
+      createdAt: nowIso(),
+    };
+    writeStore(STORAGE_KEYS.session, nextSession);
+    return nextSession;
+  }
+
   function seedIfEmpty() {
     const currentVersion = readStore(STORAGE_KEYS.mockVersion, 0);
     if (currentVersion !== MOCK_VERSION) {
@@ -119,10 +168,12 @@
         { id: "l_3", name: "Sunset lookout", desc: "Best golden-hour city view.", parking: "no", time: "18:00" },
       ]);
     }
+
+    syncSessionWithServer();
   }
 
   function getSession() {
-    return readStore(STORAGE_KEYS.session, null);
+    return readStore(STORAGE_KEYS.session, null) || syncSessionWithServer();
   }
 
   function setSession(session) {
@@ -135,7 +186,7 @@
 
   function requireAuthOrRedirect() {
     const session = getSession();
-    if (!session) global.location.href = "../pages/login.html";
+    if (!session) global.location.href = appUrl("login");
   }
 
   function formatDate(iso) {
@@ -171,7 +222,7 @@
     $("[data-action='logout']").on("click", (e) => {
       e.preventDefault();
       clearSession();
-      global.location.href = "../pages/login.html";
+      global.location.href = appUrl("logout");
     });
   }
 
@@ -316,7 +367,7 @@
 
     return `
       <article class="route-card p-3">
-        <a href="../pages/route.html?r=${encodeURIComponent(route.id)}" class="block">
+        <a href="${routeDetailUrl(route.id)}" class="block">
           ${
             showPhotoCover
               ? `<div class="route-thumb relative overflow-hidden border border-slate-200 bg-slate-100">
@@ -365,7 +416,7 @@
 
     return `
       <div class="rounded-2xl border border-slate-200 bg-white/70 p-5 shadow-sm backdrop-blur">
-        <a href="../pages/route.html?r=${encodeURIComponent(route.id)}" class="block">
+        <a href="${routeDetailUrl(route.id)}" class="block">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
               <div class="text-xs font-semibold text-slate-600">${escapeHtml(route.theme)} · ★ ${escapeHtml(route.rating)}</div>
@@ -382,7 +433,7 @@
           </div>
         </a>
         <div class="mt-4 grid grid-cols-2 gap-2">
-          <a href="../pages/create-route.html?r=${encodeURIComponent(route.id)}&mode=edit" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-sm font-semibold text-slate-900 hover:bg-slate-50">Edit</a>
+          <a href="${createRouteUrl(route.id, "edit")}" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-sm font-semibold text-slate-900 hover:bg-slate-50">Edit</a>
           <button data-route-id="${escapeHtml(route.id)}" class="btnDeleteMyRoute rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700" type="button">Delete</button>
         </div>
       </div>
@@ -416,6 +467,9 @@
     escapeHtml,
     normalizeTheme,
     topTheme,
+    appUrl,
+    routeDetailUrl,
+    createRouteUrl,
     routeCardHtml,
     routeManageCardHtml,
     emptyCard,
