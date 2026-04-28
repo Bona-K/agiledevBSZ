@@ -1,5 +1,6 @@
 from flask import Flask, render_template, redirect, url_for, request, session
-from models import db
+from functools import wraps
+from models import db, User
 
 app = Flask(__name__)
 app.secret_key = "myvibe-dev-secret-change-in-production"
@@ -29,19 +30,47 @@ THEMES = ["first date", "picnic", "active day", "hidden gems"]
 # ---------------------------------------------------------------------------
 
 def current_user():
-    return session.get("username")
+    """
+    session["user_id"] 로 DB에서 User 객체를 조회해 반환한다.
+    세션이 없거나 DB에 없으면 None을 반환한다.
+
+    NOTE: mock 로그인 구간(Issue 4 이전)에서는 user_id가 0으로 저장되므로
+          DB 조회 결과가 None이 되며, 템플릿에는 server_username을 별도 주입한다.
+    """
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    return User.query.get(user_id)
 
 
 @app.context_processor
 def inject_template_globals():
-    return {"server_username": current_user()}
+    """
+    모든 템플릿에 current_user 객체와 server_username을 주입한다.
+    - current_user : User 객체 또는 None
+    - server_username : 기존 템플릿 호환용 문자열 (username 또는 None)
+    """
+    user = current_user()
+    # mock 구간에서는 session에 _mock_username을 함께 저장해 호환성 유지
+    mock_username = session.get("_mock_username")
+    server_username = user.username if user else mock_username
+    return {
+        "current_user":    user,
+        "server_username": server_username,
+    }
 
 
 def login_required(f):
-    from functools import wraps
+    """
+    session["user_id"] 기준으로 인증 여부를 판단한다.
+    미인증 시 login 페이지로 리다이렉트한다.
+
+    NOTE: mock 구간에서는 user_id=0 으로 저장하므로
+          0도 로그인된 상태로 간주한다.
+    """
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not current_user():
+        if session.get("user_id") is None:
             return redirect(url_for("login"))
         return f(*args, **kwargs)
     return decorated
@@ -66,8 +95,12 @@ def login():
         if not password:
             return render_template("login.html", error="Please enter a password.")
 
+        # ---------------------------------------------------------------
         # Mock auth — Issue 4에서 실제 DB 인증으로 교체 예정
-        session["username"] = username
+        # user_id=0 은 mock 전용 임시값
+        # ---------------------------------------------------------------
+        session["user_id"]       = 0
+        session["_mock_username"] = username
         return redirect(url_for("dashboard"))
 
     return render_template("login.html")
@@ -87,8 +120,11 @@ def signup():
         if password != confirm:
             return render_template("signup.html", error="Passwords do not match.")
 
+        # ---------------------------------------------------------------
         # Mock — Issue 6에서 실제 DB 저장으로 교체 예정
-        session["username"] = username
+        # ---------------------------------------------------------------
+        session["user_id"]       = 0
+        session["_mock_username"] = username
         return redirect(url_for("dashboard"))
 
     return render_template("signup.html")
@@ -103,10 +139,12 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
+    user = current_user()
+    username = user.username if user else session.get("_mock_username", "—")
     return render_template(
         "dashboard.html",
         active_page="dashboard",
-        username=current_user(),
+        username=username,
     )
 
 
@@ -139,16 +177,21 @@ def create_route():
 @app.route("/profile")
 @login_required
 def profile():
+    user = current_user()
+    username = user.username if user else session.get("_mock_username", "—")
     return render_template(
         "profile.html",
         active_page="profile",
-        username=current_user(),
+        username=username,
     )
 
 
 @app.route("/route/<route_id>")
 @login_required
 def route_detail(route_id):
+    user = current_user()
+    mock_username = session.get("_mock_username", "")
+
     mock_route = {
         "id":          route_id,
         "title":       "Perth First Date",
@@ -158,7 +201,8 @@ def route_detail(route_id):
         "description": "A curated first-date day in Perth — coffee, sunset, and good vibes.",
         "tags":        ["date", "cheap", "sunset"],
     }
-    is_owner = (current_user() == mock_route["author"])
+    author_name = user.username if user else mock_username
+    is_owner = (author_name == mock_route["author"])
     return render_template(
         "route.html",
         active_page=None,
