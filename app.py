@@ -1,10 +1,23 @@
 from flask import Flask, render_template, redirect, url_for, request, session
+from models import db
 
 app = Flask(__name__)
 app.secret_key = "myvibe-dev-secret-change-in-production"
 
 # ---------------------------------------------------------------------------
-# Mock data
+# Database configuration
+# ---------------------------------------------------------------------------
+
+app.config["SQLALCHEMY_DATABASE_URI"]        = "sqlite:///myvibe.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db.init_app(app)
+
+with app.app_context():
+    db.create_all()
+
+# ---------------------------------------------------------------------------
+# Mock data (기존 JS 프론트 호환용 — 추후 DB로 교체)
 # ---------------------------------------------------------------------------
 
 DEMO_USERS = {"alex", "mina", "sam"}
@@ -22,6 +35,7 @@ def current_user():
 @app.context_processor
 def inject_template_globals():
     return {"server_username": current_user()}
+
 
 def login_required(f):
     from functools import wraps
@@ -52,7 +66,7 @@ def login():
         if not password:
             return render_template("login.html", error="Please enter a password.")
 
-        # Mock auth: any password accepted for demo users; new users auto-created
+        # Mock auth — Issue 4에서 실제 DB 인증으로 교체 예정
         session["username"] = username
         return redirect(url_for("dashboard"))
 
@@ -73,7 +87,7 @@ def signup():
         if password != confirm:
             return render_template("signup.html", error="Passwords do not match.")
 
-        # Mock: auto-login after signup
+        # Mock — Issue 6에서 실제 DB 저장으로 교체 예정
         session["username"] = username
         return redirect(url_for("dashboard"))
 
@@ -135,7 +149,6 @@ def profile():
 @app.route("/route/<route_id>")
 @login_required
 def route_detail(route_id):
-    # Mock route object — replace with real DB lookup
     mock_route = {
         "id":          route_id,
         "title":       "Perth First Date",
@@ -154,6 +167,10 @@ def route_detail(route_id):
         comments=[],
     )
 
+
+# ---------------------------------------------------------------------------
+# Legacy page redirects
+# ---------------------------------------------------------------------------
 
 @app.route("/pages/login.html")
 def legacy_login_page():
@@ -183,7 +200,7 @@ def legacy_profile_page():
 @app.route("/pages/create-route.html")
 def legacy_create_route_page():
     route_id = request.args.get("r")
-    mode = request.args.get("mode")
+    mode     = request.args.get("mode")
     if route_id and mode:
         return redirect(url_for("create_route", r=route_id, mode=mode))
     if route_id:
