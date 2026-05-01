@@ -131,16 +131,13 @@ def login():
         if not password:
             return render_template("login.html", error="Please enter a password.")
 
-        # DB에서 유저 조회
         user = User.query.filter_by(username=username).first()
         if not user:
             return render_template("login.html", error="Username not found. Please check and try again.")
 
-        # 비밀번호 검증
         if not check_password(password, user.password_hash):
             return render_template("login.html", error="Incorrect password. Please try again.")
 
-        # 인증 성공
         session["user_id"] = user.id
         return redirect(url_for("dashboard"))
 
@@ -150,34 +147,28 @@ def login():
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
-        # Issue 5 에서 변경된 필드명으로 파싱
-        name      = request.form.get("suName",      "").strip()
-        email     = request.form.get("suEmail",     "").strip().lower()
-        username  = request.form.get("suUsername",  "").strip().lower()
-        password  = request.form.get("suPassword",  "")
-        confirm   = request.form.get("suPassword2", "")
+        name     = request.form.get("suName",      "").strip()
+        email    = request.form.get("suEmail",     "").strip().lower()
+        username = request.form.get("suUsername",  "").strip().lower()
+        password = request.form.get("suPassword",  "")
+        confirm  = request.form.get("suPassword2", "")
 
-        # --- 필수 필드 검사 ---
         if not name:
             return render_template("signup.html", error="Please enter your name.")
         if not email:
             return render_template("signup.html", error="Please enter your email.")
         if not username:
             return render_template("signup.html", error="Please enter a username.")
-
-        # --- 비밀번호 검증 ---
         if len(password) < 6:
             return render_template("signup.html", error="Password must be at least 6 characters.")
         if password != confirm:
             return render_template("signup.html", error="Passwords do not match.")
 
-        # --- 중복 체크 ---
         if User.query.filter_by(username=username).first():
             return render_template("signup.html", error="Username already taken. Please choose another.")
         if User.query.filter_by(email=email).first():
             return render_template("signup.html", error="Email already registered. Please use another.")
 
-        # --- DB 저장 ---
         new_user = User(
             username      = username,
             email         = email,
@@ -187,7 +178,6 @@ def signup():
         db.session.add(new_user)
         db.session.commit()
 
-        # --- 자동 로그인 후 dashboard 리다이렉트 ---
         session["user_id"] = new_user.id
         return redirect(url_for("dashboard"))
 
@@ -245,6 +235,16 @@ def profile():
         "profile.html",
         active_page="profile",
         username=user.username if user else "—",
+    )
+
+
+@app.route("/change-password", methods=["GET"])
+@login_required
+def change_password():
+    # POST 처리는 Issue 9에서 구현 예정
+    return render_template(
+        "change_password.html",
+        active_page="profile",
     )
 
 
