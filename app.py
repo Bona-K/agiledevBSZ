@@ -15,15 +15,6 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
 
-with app.app_context():
-    db.create_all()
-
-# ---------------------------------------------------------------------------
-# Mock data (기존 JS 프론트 호환용 — 추후 DB로 교체)
-# ---------------------------------------------------------------------------
-
-THEMES = ["first date", "picnic", "active day", "hidden gems"]
-
 # ---------------------------------------------------------------------------
 # Demo user seed
 # ---------------------------------------------------------------------------
@@ -36,22 +27,22 @@ def seed_demo_users():
     """
     demo_accounts = [
         {
-            "username":   "alex",
-            "email":      "alex@myvibe.demo",
-            "password":   "password123",
-            "bio":        "Hi, I'm Alex. I love exploring the city.",
+            "username": "alex",
+            "email":    "alex@myvibe.demo",
+            "password": "password123",
+            "bio":      "Hi, I'm Alex. I love exploring the city.",
         },
         {
-            "username":   "mina",
-            "email":      "mina@myvibe.demo",
-            "password":   "password123",
-            "bio":        "Mina here — always looking for the next great route.",
+            "username": "mina",
+            "email":    "mina@myvibe.demo",
+            "password": "password123",
+            "bio":      "Mina here — always looking for the next great route.",
         },
         {
-            "username":   "sam",
-            "email":      "sam@myvibe.demo",
-            "password":   "password123",
-            "bio":        "Sam — coffee and sunset chaser.",
+            "username": "sam",
+            "email":    "sam@myvibe.demo",
+            "password": "password123",
+            "bio":      "Sam — coffee and sunset chaser.",
         },
     ]
 
@@ -74,6 +65,12 @@ with app.app_context():
     seed_demo_users()
 
 # ---------------------------------------------------------------------------
+# Mock data (기존 JS 프론트 호환용)
+# ---------------------------------------------------------------------------
+
+THEMES = ["first date", "picnic", "active day", "hidden gems"]
+
+# ---------------------------------------------------------------------------
 # Auth helpers
 # ---------------------------------------------------------------------------
 
@@ -92,16 +89,13 @@ def current_user():
 def inject_template_globals():
     """
     모든 템플릿에 current_user 객체와 server_username을 주입한다.
-    - current_user  : User 객체 또는 None
+    - current_user    : User 객체 또는 None
     - server_username : 기존 템플릿 호환용 문자열
     """
     user = current_user()
-    # signup mock 구간 호환용 fallback
-    mock_username   = session.get("_mock_username")
-    server_username = user.username if user else mock_username
     return {
         "current_user":    user,
-        "server_username": server_username,
+        "server_username": user.username if user else None,
     }
 
 
@@ -132,22 +126,18 @@ def login():
         username = request.form.get("username", "").strip().lower()
         password = request.form.get("password", "").strip()
 
-        # 기본 입력 검사 (클라이언트에서도 처리하지만 서버에서도 방어)
         if not username:
             return render_template("login.html", error="Please enter a username.")
         if not password:
             return render_template("login.html", error="Please enter a password.")
 
-        # DB에서 유저 조회
         user = User.query.filter_by(username=username).first()
         if not user:
             return render_template("login.html", error="Username not found. Please check and try again.")
 
-        # 비밀번호 검증
         if not check_password(password, user.password_hash):
             return render_template("login.html", error="Incorrect password. Please try again.")
 
-        # 인증 성공 — 실제 user.id 를 세션에 저장
         session["user_id"] = user.id
         return redirect(url_for("dashboard"))
 
@@ -157,10 +147,16 @@ def login():
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
-        username = request.form.get("suEmail", "").strip().lower()
-        password = request.form.get("suPassword", "")
+        name     = request.form.get("suName",      "").strip()
+        email    = request.form.get("suEmail",     "").strip().lower()
+        username = request.form.get("suUsername",  "").strip().lower()
+        password = request.form.get("suPassword",  "")
         confirm  = request.form.get("suPassword2", "")
 
+        if not name:
+            return render_template("signup.html", error="Please enter your name.")
+        if not email:
+            return render_template("signup.html", error="Please enter your email.")
         if not username:
             return render_template("signup.html", error="Please enter a username.")
         if len(password) < 6:
@@ -168,9 +164,21 @@ def signup():
         if password != confirm:
             return render_template("signup.html", error="Passwords do not match.")
 
-        # Mock — Issue 6에서 실제 DB 저장으로 교체 예정
-        session["user_id"]        = 0
-        session["_mock_username"] = username
+        if User.query.filter_by(username=username).first():
+            return render_template("signup.html", error="Username already taken. Please choose another.")
+        if User.query.filter_by(email=email).first():
+            return render_template("signup.html", error="Email already registered. Please use another.")
+
+        new_user = User(
+            username      = username,
+            email         = email,
+            password_hash = hash_password(password),
+            bio           = f"Hi, I'm {name}.",
+        )
+        db.session.add(new_user)
+        db.session.commit()
+
+        session["user_id"] = new_user.id
         return redirect(url_for("dashboard"))
 
     return render_template("signup.html")
@@ -185,12 +193,11 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    user     = current_user()
-    username = user.username if user else session.get("_mock_username", "—")
+    user = current_user()
     return render_template(
         "dashboard.html",
         active_page="dashboard",
-        username=username,
+        username=user.username if user else "—",
     )
 
 
@@ -223,20 +230,28 @@ def create_route():
 @app.route("/profile")
 @login_required
 def profile():
-    user     = current_user()
-    username = user.username if user else session.get("_mock_username", "—")
+    user = current_user()
     return render_template(
         "profile.html",
         active_page="profile",
-        username=username,
+        username=user.username if user else "—",
+    )
+
+
+@app.route("/change-password", methods=["GET"])
+@login_required
+def change_password():
+    # POST 처리는 Issue 9에서 구현 예정
+    return render_template(
+        "change_password.html",
+        active_page="profile",
     )
 
 
 @app.route("/route/<route_id>")
 @login_required
 def route_detail(route_id):
-    user          = current_user()
-    mock_username = session.get("_mock_username", "")
+    user = current_user()
 
     mock_route = {
         "id":          route_id,
@@ -247,8 +262,7 @@ def route_detail(route_id):
         "description": "A curated first-date day in Perth — coffee, sunset, and good vibes.",
         "tags":        ["date", "cheap", "sunset"],
     }
-    author_name = user.username if user else mock_username
-    is_owner    = (author_name == mock_route["author"])
+    is_owner = (user.username == mock_route["author"]) if user else False
     return render_template(
         "route.html",
         active_page=None,
