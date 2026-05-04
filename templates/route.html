@@ -108,6 +108,17 @@
 </main>
 {% endblock %}
 
+{% block extra_head %}
+  {% if route_json %}
+  <script id="myvibe-route-data" type="application/json">
+    {{- route_json|tojson -}}
+  </script>
+  <script>
+    window.MYVIBE_ROUTE = JSON.parse(document.getElementById("myvibe-route-data").textContent);
+  </script>
+  {% endif %}
+{% endblock %}
+
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/pages/route.js') }}"></script>
 {% endblock %}
