@@ -20,11 +20,6 @@ db.init_app(app)
 # ---------------------------------------------------------------------------
 
 def seed_demo_users():
-    """
-    데모 계정 (alex / mina / sam) 을 DB에 삽입한다.
-    이미 존재하는 계정은 건너뛴다.
-    비밀번호는 모두 'password123' 으로 통일 (데모용).
-    """
     demo_accounts = [
         {
             "username": "alex",
@@ -65,7 +60,7 @@ with app.app_context():
     seed_demo_users()
 
 # ---------------------------------------------------------------------------
-# Mock data (기존 JS 프론트 호환용)
+# Mock data
 # ---------------------------------------------------------------------------
 
 THEMES = ["first date", "picnic", "active day", "hidden gems"]
@@ -75,10 +70,6 @@ THEMES = ["first date", "picnic", "active day", "hidden gems"]
 # ---------------------------------------------------------------------------
 
 def current_user():
-    """
-    session["user_id"] 로 DB에서 User 객체를 조회해 반환한다.
-    세션이 없거나 DB에 없으면 None을 반환한다.
-    """
     user_id = session.get("user_id")
     if not user_id:
         return None
@@ -87,11 +78,6 @@ def current_user():
 
 @app.context_processor
 def inject_template_globals():
-    """
-    모든 템플릿에 current_user 객체와 server_username을 주입한다.
-    - current_user    : User 객체 또는 None
-    - server_username : 기존 템플릿 호환용 문자열
-    """
     user = current_user()
     return {
         "current_user":    user,
@@ -100,10 +86,6 @@ def inject_template_globals():
 
 
 def login_required(f):
-    """
-    session["user_id"] 기준으로 인증 여부를 판단한다.
-    미인증 시 login 페이지로 리다이렉트한다.
-    """
     @wraps(f)
     def decorated(*args, **kwargs):
         if session.get("user_id") is None:
@@ -238,10 +220,68 @@ def profile():
     )
 
 
-@app.route("/change-password", methods=["GET"])
+@app.route("/change-password", methods=["GET", "POST"])
 @login_required
 def change_password():
-    # POST 처리는 Issue 9에서 구현 예정
+    user = current_user()
+
+    if request.method == "POST":
+        current_pw = request.form.get("currentPassword", "").strip()
+        new_pw     = request.form.get("newPassword",     "")
+        confirm_pw = request.form.get("confirmPassword", "")
+
+        # --- 빈 칸 검사 ---
+        if not current_pw:
+            return render_template(
+                "change_password.html",
+                active_page="profile",
+                error="Please enter your current password.",
+            )
+        if not new_pw:
+            return render_template(
+                "change_password.html",
+                active_page="profile",
+                error="Please enter a new password.",
+            )
+        if not confirm_pw:
+            return render_template(
+                "change_password.html",
+                active_page="profile",
+                error="Please confirm your new password.",
+            )
+
+        # --- 현재 비밀번호 검증 ---
+        if not check_password(current_pw, user.password_hash):
+            return render_template(
+                "change_password.html",
+                active_page="profile",
+                error="Current password is incorrect. Please try again.",
+            )
+
+        # --- 새 비밀번호 검증 ---
+        if len(new_pw) < 6:
+            return render_template(
+                "change_password.html",
+                active_page="profile",
+                error="New password must be at least 6 characters.",
+            )
+        if new_pw != confirm_pw:
+            return render_template(
+                "change_password.html",
+                active_page="profile",
+                error="New passwords do not match.",
+            )
+
+        # --- DB 업데이트 ---
+        user.password_hash = hash_password(new_pw)
+        db.session.commit()
+
+        return render_template(
+            "change_password.html",
+            active_page="profile",
+            success="Password updated successfully.",
+        )
+
     return render_template(
         "change_password.html",
         active_page="profile",
