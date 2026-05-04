@@ -34,7 +34,7 @@ class User(db.Model):
     )
 
     # Routes owned by this user (author_id on Route).
-    routes = db.relationship("Route", back_populates="author", lazy="amic")dyn
+    routes = db.relationship("Route", back_populates="author", lazy="dynamic")
 
     def __repr__(self):
         return f"<User {self.username}>"
