@@ -72,11 +72,11 @@
     </div>
     {% endblock %}
 
+    <script id="myvibe-bootstrap-data" type="application/json">
+      {{- myvibe_bootstrap|tojson -}}
+    </script>
     <script>
-      window.MYVIBE_BOOTSTRAP = {
-        isAuthenticated: {{ (server_username is not none)|tojson }},
-        username: {{ server_username|tojson }}
-      };
+      window.MYVIBE_BOOTSTRAP = JSON.parse(document.getElementById("myvibe-bootstrap-data").textContent);
     </script>
     <script src="{{ url_for('static', filename='js/interactions.js') }}"></script>
     {% block scripts %}{% endblock %}
