@@ -48,48 +48,82 @@
         </div>
 
         <div class="mt-5 flex flex-wrap gap-2">
-          <button data-tab="my" class="tabBtn rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">My Routes</button>
-          <button data-tab="saved" class="tabBtn rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">Saved Routes</button>
-          <button data-tab="locations" class="tabBtn rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">My Locations</button>
-          <button data-tab="settings" class="tabBtn rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">Settings</button>
+          <button data-tab="my"
+            class="tabBtn rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+            My Routes
+          </button>
+          <button data-tab="saved"
+            class="tabBtn rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+            Saved Routes
+          </button>
+          <button data-tab="locations"
+            class="tabBtn rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+            My Locations
+          </button>
+          <button data-tab="settings"
+            class="tabBtn rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+            Settings
+          </button>
         </div>
       </div>
 
+      <!-- My Routes -->
       <section data-tab-panel="my" class="mt-4">
         <h2 class="text-lg font-semibold text-slate-900">My routes</h2>
         <div id="myRoutesGrid" class="mt-3 grid gap-3 sm:grid-cols-2"></div>
       </section>
 
+      <!-- Saved Routes -->
       <section data-tab-panel="saved" class="mt-4 hidden">
         <h2 class="text-lg font-semibold text-slate-900">Saved routes</h2>
         <div id="savedRoutesGrid" class="mt-3 grid gap-3 sm:grid-cols-2"></div>
       </section>
 
+      <!-- My Locations -->
       <section data-tab-panel="locations" class="mt-4 hidden">
         <h2 class="text-lg font-semibold text-slate-900">My locations</h2>
         <div id="myLocationsGrid" class="mt-3 grid gap-3 sm:grid-cols-2"></div>
       </section>
 
+      <!-- Settings -->
       <section data-tab-panel="settings" class="mt-4 hidden">
-        <h2 class="text-lg font-semibold text-slate-900">Settings (mock)</h2>
-        <div class="mt-3 rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur">
-          <div class="text-sm font-semibold text-slate-900">Change password (optional)</div>
-          <p class="mt-1 text-sm text-slate-600">Form only</p>
-          <div class="mt-4 grid gap-3 sm:grid-cols-3">
-            <input class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4" placeholder="Old password" type="password" />
-            <input class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4" placeholder="New password" type="password" />
-            <input class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4" placeholder="Confirm" type="password" />
+        <h2 class="text-lg font-semibold text-slate-900">Settings</h2>
+        <div class="mt-3 rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur space-y-6">
+
+          <!-- Change Password -->
+          <div>
+            <div class="text-sm font-semibold text-slate-900">Password</div>
+            <p class="mt-1 text-sm text-slate-600">
+              Update your password to keep your account secure.
+            </p>
+            
+              href="{{ url_for('change_password') }}"
+              class="mt-3 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+            >
+              Change password →
+            </a>
           </div>
-          <button type="button" class="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50">
-            Save（mock）
-          </button>
-          <div class="mt-6 border-t border-slate-200 pt-4">
-            <button data-action="logout" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800" type="button">
+
+          <div class="border-t border-slate-200"></div>
+
+          <!-- Logout -->
+          <div>
+            <div class="text-sm font-semibold text-slate-900">Session</div>
+            <p class="mt-1 text-sm text-slate-600">
+              Sign out from your current session.
+            </p>
+            <button
+              data-action="logout"
+              type="button"
+              class="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+            >
               Logout
             </button>
           </div>
+
         </div>
       </section>
+
     </section>
   </section>
 </main>

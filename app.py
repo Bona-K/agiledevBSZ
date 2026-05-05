@@ -13,6 +13,11 @@ from route_service import (
     serialize_route_for_client,
 )
 from utils import check_password, hash_password
+from flask import Flask, render_template, redirect, url_for, request, session, abort
+from functools import wraps
+from models import db, User, Follow
+from utils import hash_password, check_password
+from route_service import list_routes_for_author
 
 app = Flask(__name__)
 app.secret_key = "myvibe-dev-secret-change-in-production"
@@ -76,7 +81,7 @@ with app.app_context():
     seed_demo_users()
 
 # ---------------------------------------------------------------------------
-# Mock data (기존 JS 프론트 호환용)
+# Mock data
 # ---------------------------------------------------------------------------
 
 THEMES = ["first date", "picnic", "active day", "hidden gems"]
@@ -98,11 +103,6 @@ def current_user():
 
 @app.context_processor
 def inject_template_globals():
-    """
-    모든 템플릿에 current_user 객체와 server_username을 주입한다.
-    - current_user    : User 객체 또는 None
-    - server_username : 기존 템플릿 호환용 문자열
-    """
     user = current_user()
     return {
         "current_user":    user,
@@ -116,10 +116,6 @@ def inject_template_globals():
 
 
 def login_required(f):
-    """
-    session["user_id"] 기준으로 인증 여부를 판단한다.
-    미인증 시 login 페이지로 리다이렉트한다.
-    """
     @wraps(f)
     def decorated(*args, **kwargs):
         if session.get("user_id") is None:
@@ -254,13 +250,108 @@ def profile():
     )
 
 
-@app.route("/change-password", methods=["GET"])
+@app.route("/change-password", methods=["GET", "POST"])
 @login_required
 def change_password():
-    # POST 처리는 Issue 9에서 구현 예정
+    user = current_user()
+
+    if request.method == "POST":
+        current_pw = request.form.get("currentPassword", "").strip()
+        new_pw     = request.form.get("newPassword",     "")
+        confirm_pw = request.form.get("confirmPassword", "")
+
+        if not current_pw:
+            return render_template(
+                "change_password.html", active_page="profile",
+                error="Please enter your current password.",
+            )
+        if not new_pw:
+            return render_template(
+                "change_password.html", active_page="profile",
+                error="Please enter a new password.",
+            )
+        if not confirm_pw:
+            return render_template(
+                "change_password.html", active_page="profile",
+                error="Please confirm your new password.",
+            )
+        if not check_password(current_pw, user.password_hash):
+            return render_template(
+                "change_password.html", active_page="profile",
+                error="Current password is incorrect. Please try again.",
+            )
+        if len(new_pw) < 6:
+            return render_template(
+                "change_password.html", active_page="profile",
+                error="New password must be at least 6 characters.",
+            )
+        if new_pw != confirm_pw:
+            return render_template(
+                "change_password.html", active_page="profile",
+                error="New passwords do not match.",
+            )
+
+        user.password_hash = hash_password(new_pw)
+        db.session.commit()
+
+        return render_template(
+            "change_password.html", active_page="profile",
+            success="Password updated successfully.",
+        )
+
+    return render_template("change_password.html", active_page="profile")
+
+
+@app.route("/user/<username>")
+@login_required
+def user_profile(username):
+    """
+    유저 공개 프로필 페이지.
+    - 유저 정보, 공개 루트, 팔로워/팔로잉 수, 팔로우 여부를 DB에서 조회한다.
+    """
+    me = current_user()
+
+    # 존재하지 않는 유저 → 404
+    profile_user = User.query.filter_by(username=username).first()
+    if not profile_user:
+        abort(404)
+
+    # 본인 프로필 접근 → /profile 리다이렉트
+    if me and me.id == profile_user.id:
+        return redirect(url_for("profile"))
+
+    # -------------------------------------------------------------------
+    # 공개 루트 목록 조회 (route_service 활용, is_public=True 필터)
+    # -------------------------------------------------------------------
+    all_routes  = list_routes_for_author(profile_user.id)
+    user_routes = [r for r in all_routes if r.is_public]
+
+    # -------------------------------------------------------------------
+    # 팔로워 / 팔로잉 수 조회
+    # -------------------------------------------------------------------
+    follower_count  = Follow.query.filter_by(following_id=profile_user.id).count()
+    following_count = Follow.query.filter_by(follower_id=profile_user.id).count()
+
+    # -------------------------------------------------------------------
+    # 현재 유저의 팔로우 여부 확인
+    # -------------------------------------------------------------------
+    is_following = False
+    if me:
+        follow_record = Follow.query.filter_by(
+            follower_id  = me.id,
+            following_id = profile_user.id,
+        ).first()
+        is_following = follow_record is not None
+
     return render_template(
-        "change_password.html",
-        active_page="profile",
+        "user_profile.html",
+        active_page=None,
+        profile_user=profile_user,
+        is_own_profile=False,
+        is_following=is_following,
+        follower_count=follower_count,
+        following_count=following_count,
+        user_routes=user_routes,
     )
 
 
