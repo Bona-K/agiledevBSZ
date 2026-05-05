@@ -271,8 +271,9 @@ def serialize_route_for_client(route: Route) -> dict[str, Any]:
         "createdAt": _iso_utc_z(route.created_at),
         "updatedAt": _iso_utc_z(route.updated_at),
         "likes": 0,
+        # mock data for testing
         "rating": 4.0,
-        """mock data for testing"""
+        # mock data for testing
         "locations": [
             {
                 "order": loc.stop_order,
