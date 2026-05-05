@@ -1,7 +1,8 @@
 from flask import Flask, render_template, redirect, url_for, request, session, abort
 from functools import wraps
-from models import db, User
+from models import db, User, Follow
 from utils import hash_password, check_password
+from route_service import list_routes_for_author
 
 app = Flask(__name__)
 app.secret_key = "myvibe-dev-secret-change-in-production"
@@ -286,34 +287,47 @@ def change_password():
 def user_profile(username):
     """
     유저 공개 프로필 페이지.
-    실제 팔로우 여부 및 루트 조회는 Issue 11에서 구현 예정.
-    현재는 DB에서 유저 정보만 조회하고 나머지는 placeholder.
+    - 유저 정보, 공개 루트, 팔로워/팔로잉 수, 팔로우 여부를 DB에서 조회한다.
     """
     me = current_user()
 
-    # 존재하지 않는 유저 접근 시 404
+    # 존재하지 않는 유저 → 404
     profile_user = User.query.filter_by(username=username).first()
     if not profile_user:
         abort(404)
 
-    # 본인 프로필 접근 시 /profile 로 리다이렉트
+    # 본인 프로필 접근 → /profile 리다이렉트
     if me and me.id == profile_user.id:
         return redirect(url_for("profile"))
 
-    # -----------------------------------------------------------------------
-    # Issue 11에서 실제 DB 조회로 교체 예정
-    # -----------------------------------------------------------------------
-    is_own_profile  = False
-    is_following    = False
-    follower_count  = 0
-    following_count = 0
-    user_routes     = []
+    # -------------------------------------------------------------------
+    # 공개 루트 목록 조회 (route_service 활용, is_public=True 필터)
+    # -------------------------------------------------------------------
+    all_routes  = list_routes_for_author(profile_user.id)
+    user_routes = [r for r in all_routes if r.is_public]
+
+    # -------------------------------------------------------------------
+    # 팔로워 / 팔로잉 수 조회
+    # -------------------------------------------------------------------
+    follower_count  = Follow.query.filter_by(following_id=profile_user.id).count()
+    following_count = Follow.query.filter_by(follower_id=profile_user.id).count()
+
+    # -------------------------------------------------------------------
+    # 현재 유저의 팔로우 여부 확인
+    # -------------------------------------------------------------------
+    is_following = False
+    if me:
+        follow_record = Follow.query.filter_by(
+            follower_id  = me.id,
+            following_id = profile_user.id,
+        ).first()
+        is_following = follow_record is not None
 
     return render_template(
         "user_profile.html",
         active_page=None,
         profile_user=profile_user,
-        is_own_profile=is_own_profile,
+        is_own_profile=False,
         is_following=is_following,
         follower_count=follower_count,
         following_count=following_count,
