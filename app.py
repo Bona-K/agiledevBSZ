@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, session
+from flask import Flask, render_template, redirect, url_for, request, session, abort
 from functools import wraps
 from models import db, User
 from utils import hash_password, check_password
@@ -20,6 +20,11 @@ db.init_app(app)
 # ---------------------------------------------------------------------------
 
 def seed_demo_users():
+    """
+    데모 계정 (alex / mina / sam) 을 DB에 삽입한다.
+    이미 존재하는 계정은 건너뛴다.
+    비밀번호는 모두 'password123' 으로 통일 (데모용).
+    """
     demo_accounts = [
         {
             "username": "alex",
@@ -70,6 +75,10 @@ THEMES = ["first date", "picnic", "active day", "hidden gems"]
 # ---------------------------------------------------------------------------
 
 def current_user():
+    """
+    session["user_id"] 로 DB에서 User 객체를 조회해 반환한다.
+    세션이 없거나 DB에 없으면 None을 반환한다.
+    """
     user_id = session.get("user_id")
     if not user_id:
         return None
@@ -230,61 +239,85 @@ def change_password():
         new_pw     = request.form.get("newPassword",     "")
         confirm_pw = request.form.get("confirmPassword", "")
 
-        # --- 빈 칸 검사 ---
         if not current_pw:
             return render_template(
-                "change_password.html",
-                active_page="profile",
+                "change_password.html", active_page="profile",
                 error="Please enter your current password.",
             )
         if not new_pw:
             return render_template(
-                "change_password.html",
-                active_page="profile",
+                "change_password.html", active_page="profile",
                 error="Please enter a new password.",
             )
         if not confirm_pw:
             return render_template(
-                "change_password.html",
-                active_page="profile",
+                "change_password.html", active_page="profile",
                 error="Please confirm your new password.",
             )
-
-        # --- 현재 비밀번호 검증 ---
         if not check_password(current_pw, user.password_hash):
             return render_template(
-                "change_password.html",
-                active_page="profile",
+                "change_password.html", active_page="profile",
                 error="Current password is incorrect. Please try again.",
             )
-
-        # --- 새 비밀번호 검증 ---
         if len(new_pw) < 6:
             return render_template(
-                "change_password.html",
-                active_page="profile",
+                "change_password.html", active_page="profile",
                 error="New password must be at least 6 characters.",
             )
         if new_pw != confirm_pw:
             return render_template(
-                "change_password.html",
-                active_page="profile",
+                "change_password.html", active_page="profile",
                 error="New passwords do not match.",
             )
 
-        # --- DB 업데이트 ---
         user.password_hash = hash_password(new_pw)
         db.session.commit()
 
         return render_template(
-            "change_password.html",
-            active_page="profile",
+            "change_password.html", active_page="profile",
             success="Password updated successfully.",
         )
 
+    return render_template("change_password.html", active_page="profile")
+
+
+@app.route("/user/<username>")
+@login_required
+def user_profile(username):
+    """
+    유저 공개 프로필 페이지.
+    실제 팔로우 여부 및 루트 조회는 Issue 11에서 구현 예정.
+    현재는 DB에서 유저 정보만 조회하고 나머지는 placeholder.
+    """
+    me = current_user()
+
+    # 존재하지 않는 유저 접근 시 404
+    profile_user = User.query.filter_by(username=username).first()
+    if not profile_user:
+        abort(404)
+
+    # 본인 프로필 접근 시 /profile 로 리다이렉트
+    if me and me.id == profile_user.id:
+        return redirect(url_for("profile"))
+
+    # -----------------------------------------------------------------------
+    # Issue 11에서 실제 DB 조회로 교체 예정
+    # -----------------------------------------------------------------------
+    is_own_profile  = False
+    is_following    = False
+    follower_count  = 0
+    following_count = 0
+    user_routes     = []
+
     return render_template(
-        "change_password.html",
-        active_page="profile",
+        "user_profile.html",
+        active_page=None,
+        profile_user=profile_user,
+        is_own_profile=is_own_profile,
+        is_following=is_following,
+        follower_count=follower_count,
+        following_count=following_count,
+        user_routes=user_routes,
     )
 
 
