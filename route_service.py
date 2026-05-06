@@ -12,6 +12,15 @@ from typing import Any, Optional
 from models import db, Route, RouteLocation, User
 
 
+class RouteValidationError(Exception):
+    """Raised when create payload fails validation; carries per-field messages for API/UI."""
+
+    def __init__(self, errors: dict[str, str]):
+        self.errors = errors
+        msg = next(iter(errors.values()), "Validation failed.")
+        super().__init__(msg)
+
+
 def _iso_utc_z(dt: Optional[datetime]) -> Optional[str]:
     """Turn stored UTC datetimes into the same style as JavaScript Date#toISOString()."""
     if dt is None:
@@ -40,64 +49,94 @@ def _author_user(author_id: int) -> User:
     return user
 
 
-def create_route_from_payload(author_id: Optional[int], payload: dict[str, Any]) -> Route:
+def _prepare_create_route_data(
+    author_id: Optional[int], payload: dict[str, Any]
+) -> tuple[dict[str, str], Optional[tuple[int, str, str, str, list[str], bool, list[dict[str, Any]]]]]:
     """
-    Insert a Route and its RouteLocation rows in one transaction.
-
-    Payload keys align with the create-route form / localStorage mock:
-      title, description, theme, tags (list[str]), isPublic (bool), locations (list)
-    Each location: order, name, time, desc, parking; optional photoUrl, lat, lng.
+    Validate payload for create. Returns (errors, None) or ({}, (aid, title, description, theme, tags, is_public, validated_stops)).
     """
-    aid = _require_author_id(author_id)
-    _author_user(aid)
+    errors: dict[str, str] = {}
+    try:
+        aid = _require_author_id(author_id)
+    except ValueError as exc:
+        return {"author": str(exc)}, None
+    try:
+        _author_user(aid)
+    except ValueError as exc:
+        return {"author": str(exc)}, None
 
     title = str(payload.get("title") or "").strip()
     if not title:
-        raise ValueError("title is required.")
+        errors["title"] = "Title is required."
 
     description = str(payload.get("description") or "").strip()
     theme = str(payload.get("theme") or "").strip()
+    if not theme:
+        errors["theme"] = "Please choose a theme."
+
     tags = payload.get("tags") or []
     if not isinstance(tags, list):
-        raise ValueError("tags must be a list of strings.")
-    tags = [str(t).strip() for t in tags if str(t).strip()]
+        errors["tags"] = "Tags must be a list."
+    else:
+        tags = [str(t).strip() for t in tags if str(t).strip()]
 
     is_public = bool(payload.get("isPublic", True))
 
     raw_locs = payload.get("locations") or []
-    if not isinstance(raw_locs, list) or len(raw_locs) == 0:
-        raise ValueError("locations must be a non-empty list.")
+    if not isinstance(raw_locs, list):
+        errors["locations"] = "Add at least one location with name and time."
+    elif len(raw_locs) == 0:
+        errors["locations"] = "Add at least one location."
 
-    # Validate every stop before touching the ORM so the session never half-applies.
+    if errors:
+        return errors, None
+
+    assert isinstance(raw_locs, list)
+
     normalized: list[tuple[int, dict[str, Any]]] = []
-    for item in raw_locs:
+    for idx, item in enumerate(raw_locs):
         if not isinstance(item, dict):
-            raise ValueError("each location must be an object.")
+            errors[f"locations.{idx}"] = "Each stop must be a valid entry."
+            continue
         order_val = item.get("order")
         if order_val is None:
-            raise ValueError("each location must include order.")
+            errors[f"locations.{idx}.order"] = "Order is required for each stop."
+            continue
         try:
             stop_order = int(order_val)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("location.order must be an integer.") from exc
+        except (TypeError, ValueError):
+            errors[f"locations.{idx}.order"] = "Order must be a whole number."
+            continue
         if stop_order < 1:
-            raise ValueError("location.order must be >= 1.")
+            errors[f"locations.{idx}.order"] = "Order must be 1 or greater."
+            continue
         normalized.append((stop_order, item))
+
+    if errors:
+        return errors, None
 
     normalized.sort(key=lambda x: x[0])
     used_orders: set[int] = set()
-    validated_stops: list[dict[str, Any]] = []
-    for stop_order, item in normalized:
+    for idx, (stop_order, item) in enumerate(normalized):
         if stop_order in used_orders:
-            raise ValueError("duplicate location order is not allowed.")
+            errors["locations"] = "Each stop must have a unique order."
+            break
         used_orders.add(stop_order)
 
         name = str(item.get("name") or "").strip()
         if not name:
-            raise ValueError("each location must include a non-empty name.")
+            errors[f"locations.{idx}.name"] = "Location name is required."
         time_s = str(item.get("time") or "").strip()
         if not time_s:
-            raise ValueError("each location must include time.")
+            errors[f"locations.{idx}.time"] = "Time is required for each stop."
+
+    if errors:
+        return errors, None
+
+    validated_stops: list[dict[str, Any]] = []
+    for stop_order, item in normalized:
+        name = str(item.get("name") or "").strip()
+        time_s = str(item.get("time") or "").strip()
         desc = str(item.get("desc") or item.get("description") or "").strip()
         parking = str(item.get("parking") or "unknown").strip() or "unknown"
 
@@ -108,8 +147,11 @@ def create_route_from_payload(author_id: Optional[int], payload: dict[str, Any])
 
         lat = item.get("lat")
         lng = item.get("lng")
-        lat_f = float(lat) if lat is not None and lat != "" else None
-        lng_f = float(lng) if lng is not None and lng != "" else None
+        try:
+            lat_f = float(lat) if lat is not None and lat != "" else None
+            lng_f = float(lng) if lng is not None and lng != "" else None
+        except (TypeError, ValueError):
+            lat_f, lng_f = None, None
 
         validated_stops.append(
             {
@@ -123,6 +165,24 @@ def create_route_from_payload(author_id: Optional[int], payload: dict[str, Any])
                 "lng": lng_f,
             }
         )
+
+    return {}, (aid, title, description, theme, tags, is_public, validated_stops)
+
+
+def create_route_from_payload(author_id: Optional[int], payload: dict[str, Any]) -> Route:
+    """
+    Insert a Route and its RouteLocation rows in one transaction.
+
+    Payload keys align with the create-route form / localStorage mock:
+      title, description, theme, tags (list[str]), isPublic (bool), locations (list)
+    Each location: order, name, time, desc, parking; optional photoUrl, lat, lng.
+    """
+    prep = _prepare_create_route_data(author_id, payload)
+    errors, data = prep
+    if errors or data is None:
+        raise RouteValidationError(errors or {"": "Validation failed."})
+
+    aid, title, description, theme, tags, is_public, validated_stops = data
 
     route = Route(
         author_id=aid,
@@ -195,9 +255,14 @@ def serialize_route_for_client(route: Route) -> dict[str, Any]:
     Mirrors static/js/pages/create-route.js and seed routes in interactions.js.
     """
     locs = sorted(route.locations, key=lambda x: x.stop_order)
+    author_username = ""
+    if getattr(route, "author", None) is not None:
+        author_username = str(route.author.username or "")
+
     return {
         "id": route.id,
         "authorId": route.author_id,
+        "authorUsername": author_username,
         "title": route.title,
         "description": route.description,
         "theme": route.theme,
@@ -205,6 +270,10 @@ def serialize_route_for_client(route: Route) -> dict[str, Any]:
         "isPublic": bool(route.is_public),
         "createdAt": _iso_utc_z(route.created_at),
         "updatedAt": _iso_utc_z(route.updated_at),
+        "likes": 0,
+        # mock data for testing
+        "rating": 4.0,
+        # mock data for testing
         "locations": [
             {
                 "order": loc.stop_order,
@@ -220,3 +289,4 @@ def serialize_route_for_client(route: Route) -> dict[str, Any]:
             for loc in locs
         ],
     }
+    
