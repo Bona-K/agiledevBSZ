@@ -5,7 +5,7 @@ from flask import Flask, abort, jsonify, redirect, render_template, request, ses
 from functools import wraps
 from werkzeug.utils import secure_filename
 
-from models import db, User
+from models import db, User, Follow, Notification
 from route_service import (
     RouteValidationError,
     create_route_from_payload,
@@ -15,9 +15,9 @@ from route_service import (
 from utils import check_password, hash_password
 from flask import Flask, render_template, redirect, url_for, request, session, abort
 from functools import wraps
-from models import db, User, Follow
-from utils import hash_password, check_password
-from route_service import list_routes_for_author
+
+from models import db, User, Follow, Notification
+from utils import check_password, hash_password
 
 app = Flask(__name__)
 app.secret_key = "myvibe-dev-secret-change-in-production"
@@ -36,11 +36,6 @@ db.init_app(app)
 # ---------------------------------------------------------------------------
 
 def seed_demo_users():
-    """
-    데모 계정 (alex / mina / sam) 을 DB에 삽입한다.
-    이미 존재하는 계정은 건너뛴다.
-    비밀번호는 모두 'password123' 으로 통일 (데모용).
-    """
     demo_accounts = [
         {
             "username": "alex",
@@ -91,10 +86,6 @@ THEMES = ["first date", "picnic", "active day", "hidden gems"]
 # ---------------------------------------------------------------------------
 
 def current_user():
-    """
-    session["user_id"] 로 DB에서 User 객체를 조회해 반환한다.
-    세션이 없거나 DB에 없으면 None을 반환한다.
-    """
     user_id = session.get("user_id")
     if not user_id:
         return None
@@ -243,10 +234,16 @@ def create_route():
 @login_required
 def profile():
     user = current_user()
+
+    follower_count  = Follow.query.filter_by(following_id=user.id).count()
+    following_count = Follow.query.filter_by(follower_id=user.id).count()
+
     return render_template(
         "profile.html",
         active_page="profile",
         username=user.username if user else "—",
+        follower_count=follower_count,
+        following_count=following_count,
     )
 
 
@@ -305,36 +302,18 @@ def change_password():
 @app.route("/user/<username>")
 @login_required
 def user_profile(username):
-    """
-    유저 공개 프로필 페이지.
-    - 유저 정보, 공개 루트, 팔로워/팔로잉 수, 팔로우 여부를 DB에서 조회한다.
-    """
     me = current_user()
 
-    # 존재하지 않는 유저 → 404
     profile_user = User.query.filter_by(username=username).first()
     if not profile_user:
         abort(404)
 
-    # 본인 프로필 접근 → /profile 리다이렉트
     if me and me.id == profile_user.id:
         return redirect(url_for("profile"))
 
-    # -------------------------------------------------------------------
-    # 공개 루트 목록 조회 (route_service 활용, is_public=True 필터)
-    # -------------------------------------------------------------------
-    all_routes  = list_routes_for_author(profile_user.id)
-    user_routes = [r for r in all_routes if r.is_public]
-
-    # -------------------------------------------------------------------
-    # 팔로워 / 팔로잉 수 조회
-    # -------------------------------------------------------------------
     follower_count  = Follow.query.filter_by(following_id=profile_user.id).count()
     following_count = Follow.query.filter_by(follower_id=profile_user.id).count()
 
-    # -------------------------------------------------------------------
-    # 현재 유저의 팔로우 여부 확인
-    # -------------------------------------------------------------------
     is_following = False
     if me:
         follow_record = Follow.query.filter_by(
@@ -351,10 +330,11 @@ def user_profile(username):
         is_following=is_following,
         follower_count=follower_count,
         following_count=following_count,
-        user_routes=user_routes,
+        user_routes=[],  # route_service는 팀원 PR 머지 후 연결
     )
 
 
+@app.route("/follow/<username>", methods=["POST"])
 def _places_upload_dir() -> str:
     path = os.path.join(app.root_path, "static", "uploads", "places")
     os.makedirs(path, exist_ok=True)
@@ -420,9 +400,49 @@ def api_upload_place_photo():
 
 @app.route("/route/<route_id>")
 @login_required
-def route_detail(route_id):
-    user = current_user()
+def follow_user(username):
+    me = current_user()
+    if me is None:
+        return jsonify(ok=False, error="Not signed in."), 401
 
+    profile_user = User.query.filter_by(username=username).first()
+    if not profile_user:
+        return jsonify(ok=False, error="User not found."), 404
+
+    if me.id == profile_user.id:
+        return jsonify(ok=False, error="You cannot follow yourself."), 400
+
+    existing = Follow.query.filter_by(
+        follower_id  = me.id,
+        following_id = profile_user.id,
+    ).first()
+
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        is_following = False
+    else:
+        new_follow = Follow(
+            follower_id  = me.id,
+            following_id = profile_user.id,
+        )
+        db.session.add(new_follow)
+
+        notification = Notification(
+            recipient_id = profile_user.id,
+            sender_id    = me.id,
+            type         = "follow",
+        )
+        db.session.add(notification)
+        db.session.commit()
+        is_following = True
+
+    follower_count = Follow.query.filter_by(following_id=profile_user.id).count()
+
+    return jsonify(
+        ok=True,
+        is_following=is_following,
+        follower_count=follower_count,
     if route_id.isdigit():
         rid = int(route_id)
         route_obj = get_route_for_viewer(rid, user.id if user else None)
@@ -513,7 +533,7 @@ def legacy_create_route_page():
 def legacy_route_page():
     route_id = request.args.get("r")
     if route_id:
-        return redirect(url_for("route_detail", route_id=route_id))
+        return redirect(url_for("dashboard"))
     return redirect(url_for("dashboard"))
 
 
