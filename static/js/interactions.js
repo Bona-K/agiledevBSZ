@@ -41,6 +41,35 @@
     return path.startsWith("/") ? path : `/${path}`;
   }
 
+  /**
+   * JSON fetch with session cookie. Throws Error with .status and .body on non-2xx.
+   */
+  async function fetchJson(path, options = {}) {
+    const url = appUrl(path.replace(/^\//, ""));
+    const opts = { credentials: "same-origin", ...options };
+    const headers = { ...(opts.headers || {}) };
+    if (opts.body && typeof opts.body === "object" && !(opts.body instanceof FormData)) {
+      headers["Content-Type"] = headers["Content-Type"] || "application/json";
+      opts.body = JSON.stringify(opts.body);
+    }
+    opts.headers = headers;
+    const res = await global.fetch(url, opts);
+    let data = null;
+    const text = await res.text();
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = { ok: false, parseError: true, raw: text };
+    }
+    if (!res.ok) {
+      const err = new Error((data && (data.error || data.message)) || res.statusText || "Request failed");
+      err.status = res.status;
+      err.body = data;
+      throw err;
+    }
+    return data;
+  }
+
   function routeDetailUrl(routeId) {
     return appUrl(`route/${encodeURIComponent(routeId)}`);
   }
@@ -468,6 +497,7 @@
     normalizeTheme,
     topTheme,
     appUrl,
+    fetchJson,
     routeDetailUrl,
     createRouteUrl,
     routeCardHtml,
