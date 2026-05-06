@@ -6,7 +6,7 @@
   const C = window.AppCore;
   if (!C) return;
 
-  function mountRoute() {
+  async function mountRoute() {
     C.requireAuthOrRedirect();
     C.seedIfEmpty();
     C.mountNav();
@@ -23,8 +23,19 @@
     const numericId = /^\d+$/.test(String(routeId || ""));
 
     let route = null;
-    if (numericId && global.MYVIBE_ROUTE) {
-      route = { ...global.MYVIBE_ROUTE, id: String(global.MYVIBE_ROUTE.id) };
+    if (numericId) {
+      if (global.MYVIBE_ROUTE) {
+        route = { ...global.MYVIBE_ROUTE, id: String(global.MYVIBE_ROUTE.id) };
+      } else {
+        try {
+          const data = await C.fetchJson(`api/routes/${encodeURIComponent(routeId)}`);
+          if (data?.ok && data.route) {
+            route = { ...data.route, id: String(data.route.id) };
+          }
+        } catch {
+          route = null;
+        }
+      }
     } else {
       route = routes.find((r) => r.id === routeId) || routes[0];
     }
@@ -141,6 +152,8 @@
   }
 
   $(document).ready(() => {
-    if ($("body").attr("data-page") === "route") mountRoute();
+    if ($("body").attr("data-page") === "route") {
+      mountRoute();
+    }
   });
 })();
