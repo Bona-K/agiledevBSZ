@@ -115,8 +115,10 @@
       <!-- Route cards grid -->
       <div class="mt-4 grid gap-3 sm:grid-cols-2">
         {% for route in user_routes %}
-        <a href="{{ url_for('route_detail', route_id=route.id) }}"
-           class="route-card block p-4 transition hover:-translate-y-0.5 hover:shadow-md">
+        
+          <a href="{{ url_for('route_detail', route_id=route.id) }}"
+             class="route-card block p-4 transition hover:-translate-y-0.5 hover:shadow-md">
+          <!-- Thumbnail placeholder -->
           <div class="route-thumb flex items-center justify-center bg-gradient-to-br
             {% if route.theme == 'first date' %}from-pink-100 to-rose-100
             {% elif route.theme == 'picnic' %}from-yellow-100 to-amber-100
