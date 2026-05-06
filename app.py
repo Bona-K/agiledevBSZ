@@ -334,7 +334,6 @@ def user_profile(username):
     )
 
 
-@app.route("/follow/<username>", methods=["POST"])
 def _places_upload_dir() -> str:
     path = os.path.join(app.root_path, "static", "uploads", "places")
     os.makedirs(path, exist_ok=True)
@@ -398,7 +397,7 @@ def api_upload_place_photo():
     return jsonify(ok=True, url=url_for("static", filename=rel))
 
 
-@app.route("/route/<route_id>")
+@app.route("/follow/<username>", methods=["POST"])
 @login_required
 def follow_user(username):
     me = current_user()
@@ -443,6 +442,13 @@ def follow_user(username):
         ok=True,
         is_following=is_following,
         follower_count=follower_count,
+    )
+
+
+@app.route("/route/<route_id>")
+@login_required
+def route_detail(route_id):
+    user = current_user()
     if route_id.isdigit():
         rid = int(route_id)
         route_obj = get_route_for_viewer(rid, user.id if user else None)
