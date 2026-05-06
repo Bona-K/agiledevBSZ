@@ -436,6 +436,9 @@
   // Shared profile management card for "My Routes" panel.
   function routeManageCardHtml(route, users, savedIds) {
     const author = users.find((u) => u.id === route.authorId);
+    const authorName = author
+      ? author.name
+      : String(route.authorUsername || "").trim() || "Unknown";
     const savedSet = new Set(savedIds || []);
     const saved = savedSet.has(route.id);
     const tags = (route.tags || []).slice(0, 3);
@@ -450,7 +453,7 @@
             <div class="min-w-0">
               <div class="text-xs font-semibold text-slate-600">${escapeHtml(route.theme)} · ★ ${escapeHtml(route.rating)}</div>
               <div class="mt-1 line-clamp-2 text-sm font-semibold text-slate-900 hover:text-sky-800">${escapeHtml(route.title)}</div>
-              <div class="mt-2 text-xs text-slate-600">by ${escapeHtml(author ? author.name : "Unknown")} · ${escapeHtml(formatDate(route.createdAt))}</div>
+              <div class="mt-2 text-xs text-slate-600">by ${escapeHtml(authorName)} · ${escapeHtml(formatDate(route.createdAt))}</div>
             </div>
             <div class="rounded-xl ${saved ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-700"} px-3 py-2 text-xs font-semibold">${saved ? "Saved" : "Save"}</div>
           </div>
