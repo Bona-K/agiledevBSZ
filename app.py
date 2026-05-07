@@ -10,6 +10,7 @@ from route_service import (
     RouteValidationError,
     create_route_from_payload,
     get_route_for_viewer,
+    list_routes_for_author,
     serialize_route_for_client,
 )
 from utils import check_password, hash_password
@@ -334,7 +335,6 @@ def user_profile(username):
     )
 
 
-@app.route("/follow/<username>", methods=["POST"])
 def _places_upload_dir() -> str:
     path = os.path.join(app.root_path, "static", "uploads", "places")
     os.makedirs(path, exist_ok=True)
@@ -377,6 +377,16 @@ def api_get_route(route_id):
     return jsonify(ok=True, route=serialize_route_for_client(route))
 
 
+@app.route("/api/my-routes", methods=["GET"])
+@login_required
+def api_list_my_routes():
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    routes = list_routes_for_author(user.id)
+    return jsonify(ok=True, routes=[serialize_route_for_client(route) for route in routes])
+
+
 @app.route("/api/uploads/place-photo", methods=["POST"])
 @login_required
 def api_upload_place_photo():
@@ -398,7 +408,7 @@ def api_upload_place_photo():
     return jsonify(ok=True, url=url_for("static", filename=rel))
 
 
-@app.route("/route/<route_id>")
+@app.route("/follow/<username>", methods=["POST"])
 @login_required
 def follow_user(username):
     me = current_user()
@@ -443,6 +453,13 @@ def follow_user(username):
         ok=True,
         is_following=is_following,
         follower_count=follower_count,
+    )
+
+
+@app.route("/route/<route_id>")
+@login_required
+def route_detail(route_id):
+    user = current_user()
     if route_id.isdigit():
         rid = int(route_id)
         route_obj = get_route_for_viewer(rid, user.id if user else None)
