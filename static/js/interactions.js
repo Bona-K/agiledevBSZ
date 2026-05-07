@@ -41,6 +41,35 @@
     return path.startsWith("/") ? path : `/${path}`;
   }
 
+  /**
+   * JSON fetch with session cookie. Throws Error with .status and .body on non-2xx.
+   */
+  async function fetchJson(path, options = {}) {
+    const url = appUrl(path.replace(/^\//, ""));
+    const opts = { credentials: "same-origin", ...options };
+    const headers = { ...(opts.headers || {}) };
+    if (opts.body && typeof opts.body === "object" && !(opts.body instanceof FormData)) {
+      headers["Content-Type"] = headers["Content-Type"] || "application/json";
+      opts.body = JSON.stringify(opts.body);
+    }
+    opts.headers = headers;
+    const res = await global.fetch(url, opts);
+    let data = null;
+    const text = await res.text();
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = { ok: false, parseError: true, raw: text };
+    }
+    if (!res.ok) {
+      const err = new Error((data && (data.error || data.message)) || res.statusText || "Request failed");
+      err.status = res.status;
+      err.body = data;
+      throw err;
+    }
+    return data;
+  }
+
   function routeDetailUrl(routeId) {
     return appUrl(`route/${encodeURIComponent(routeId)}`);
   }
@@ -407,6 +436,9 @@
   // Shared profile management card for "My Routes" panel.
   function routeManageCardHtml(route, users, savedIds) {
     const author = users.find((u) => u.id === route.authorId);
+    const authorName = author
+      ? author.name
+      : String(route.authorUsername || "").trim() || "Unknown";
     const savedSet = new Set(savedIds || []);
     const saved = savedSet.has(route.id);
     const tags = (route.tags || []).slice(0, 3);
@@ -421,7 +453,7 @@
             <div class="min-w-0">
               <div class="text-xs font-semibold text-slate-600">${escapeHtml(route.theme)} · ★ ${escapeHtml(route.rating)}</div>
               <div class="mt-1 line-clamp-2 text-sm font-semibold text-slate-900 hover:text-sky-800">${escapeHtml(route.title)}</div>
-              <div class="mt-2 text-xs text-slate-600">by ${escapeHtml(author ? author.name : "Unknown")} · ${escapeHtml(formatDate(route.createdAt))}</div>
+              <div class="mt-2 text-xs text-slate-600">by ${escapeHtml(authorName)} · ${escapeHtml(formatDate(route.createdAt))}</div>
             </div>
             <div class="rounded-xl ${saved ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-700"} px-3 py-2 text-xs font-semibold">${saved ? "Saved" : "Save"}</div>
           </div>
@@ -468,6 +500,7 @@
     normalizeTheme,
     topTheme,
     appUrl,
+    fetchJson,
     routeDetailUrl,
     createRouteUrl,
     routeCardHtml,

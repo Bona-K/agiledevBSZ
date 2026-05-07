@@ -22,13 +22,26 @@
     $("#profileInitials").text(C.initials(me.name));
     $("#profileJoined").text(C.formatDate(me.joinedAt));
 
-    function renderPanels() {
-      const allRoutes = C.readStore(C.STORAGE_KEYS.routes, []);
+    async function loadMyRoutes() {
+      try {
+        const data = await C.fetchJson("api/my-routes");
+        return Array.isArray(data?.routes) ? data.routes : [];
+      } catch (err) {
+        C.showToast("Could not load your routes.", "error");
+        return [];
+      }
+    }
+
+    async function renderPanels() {
+      const myRoutes = await loadMyRoutes();
       const allSaved = C.readStore(C.STORAGE_KEYS.saved, []);
-      const myRoutes = allRoutes.filter((r) => r.authorId === me.id);
-      $("#myRoutesGrid").html(myRoutes.map((r) => C.routeManageCardHtml(r, users, allSaved)).join("") || C.emptyCard("You have not created any routes yet."));
+      $("#myRoutesGrid").html(
+        myRoutes.map((r) => C.routeManageCardHtml(r, users, allSaved)).join("") ||
+          C.emptyCard("You have not created any routes yet.")
+      );
 
       const savedSet = new Set(allSaved || []);
+      const allRoutes = C.readStore(C.STORAGE_KEYS.routes, []);
       const savedRoutes = allRoutes.filter((r) => savedSet.has(r.id));
       $("#savedRoutesGrid").html(savedRoutes.map((r) => C.routeCardHtml(r, users, allSaved)).join("") || C.emptyCard("No saved routes yet."));
 
@@ -60,6 +73,10 @@
     $("#myRoutesGrid").on("click", ".btnDeleteMyRoute", function () {
       const routeId = String($(this).attr("data-route-id") || "");
       if (!routeId) return;
+      if (/^\d+$/.test(routeId)) {
+        C.showToast("Delete is not available yet.", "error");
+        return;
+      }
       if (!window.confirm("Delete this route?")) return;
       const nextRoutes = C.readStore(C.STORAGE_KEYS.routes, []).filter((r) => r.id !== routeId);
       C.writeStore(C.STORAGE_KEYS.routes, nextRoutes);
