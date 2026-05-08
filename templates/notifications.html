@@ -39,7 +39,7 @@
       {% set sender = item.sender %}
 
       <li id="notif-{{ n.id }}"
-          class="rounded-2xl border shadow-sm transition
+          class="relative rounded-2xl border shadow-sm transition
                  {% if not n.is_read %}
                    border-sky-200 bg-white
                  {% else %}
