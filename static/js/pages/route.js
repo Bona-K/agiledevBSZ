@@ -5,6 +5,103 @@
 (function routePage() {
   const C = window.AppCore;
   if (!C) return;
+  const COMMENTS_KEY = "mv_route_comments_v1";
+
+  function commentsStore() {
+    return C.readStore(COMMENTS_KEY, {});
+  }
+
+  function writeCommentsStore(store) {
+    C.writeStore(COMMENTS_KEY, store);
+  }
+
+  function routeComments(routeId) {
+    const key = String(routeId || "");
+    const store = commentsStore();
+    return Array.isArray(store[key]) ? store[key] : [];
+  }
+
+  function saveRouteComments(routeId, comments) {
+    const key = String(routeId || "");
+    const store = commentsStore();
+    store[key] = comments;
+    writeCommentsStore(store);
+  }
+
+  function timeAgoLabel(iso) {
+    const ts = new Date(iso).getTime();
+    if (!Number.isFinite(ts)) return "just now";
+    const diffMin = Math.max(0, Math.floor((Date.now() - ts) / 60000));
+    if (diffMin < 1) return "just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour}h ago`;
+    const diffDay = Math.floor(diffHour / 24);
+    return `${diffDay}d ago`;
+  }
+
+  function renderComments(routeId) {
+    const list = routeComments(routeId);
+    if (!list.length) {
+      $("#commentList").html(
+        `<div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">No comments yet. Be the first to comment.</div>`
+      );
+      return;
+    }
+    $("#commentList").html(
+      list
+        .slice()
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+        .map(
+          (c) => `
+        <div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
+          <div class="text-xs font-semibold text-slate-600">${C.escapeHtml(c.author)} · ${C.escapeHtml(timeAgoLabel(c.createdAt))}</div>
+          <div class="mt-2">${C.escapeHtml(c.text)}</div>
+        </div>
+      `
+        )
+        .join("")
+    );
+  }
+
+  function renderSimilarRoutes(route, routes) {
+    const currentTags = new Set((route.tags || []).map((t) => String(t || "").toLowerCase()));
+    const currentTheme = String(route.theme || "").toLowerCase();
+    const similar = routes
+      .filter((r) => String(r.id) !== String(route.id))
+      .map((r) => {
+        const rTags = (r.tags || []).map((t) => String(t || "").toLowerCase());
+        const overlap = rTags.filter((t) => currentTags.has(t)).length;
+        let score = 0;
+        if (String(r.theme || "").toLowerCase() === currentTheme && currentTheme) score += 2;
+        score += overlap;
+        return { route: r, score };
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4)
+      .map((x) => x.route);
+
+    if (!similar.length) {
+      $("#similarRoutes").html(
+        `<div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">No similar routes available yet.</div>`
+      );
+      return;
+    }
+    $("#similarRoutes").html(
+      similar
+        .map(
+          (r) => `
+        <a href="${C.routeDetailUrl(r.id)}" class="rounded-2xl border border-slate-200 bg-white p-4 text-sm shadow-sm hover:bg-slate-50">
+          <div class="text-xs font-semibold text-slate-600">${C.escapeHtml(r.theme || "—")}</div>
+          <div class="mt-1 font-semibold text-slate-900">${C.escapeHtml(r.title || "Untitled route")}</div>
+          <div class="mt-2 text-slate-600">${C.escapeHtml((r.tags || []).slice(0, 3).map((t) => `#${t}`).join(" "))}</div>
+        </a>
+      `
+        )
+        .join("")
+    );
+  }
 
   async function mountRoute() {
     C.requireAuthOrRedirect();
@@ -47,10 +144,15 @@
     }
 
     const author = users.find((u) => u.id === route.authorId);
-    const authorLabel = route.authorUsername || (author ? author.name : "Unknown");
+    const authorLabel = route.authorUsername || (author ? author.username || author.name : "Unknown");
     $("#routeTitle").text(route.title);
     $("#routeTheme").text(route.theme);
     $("#routeAuthor").text(authorLabel);
+    if (authorLabel && authorLabel !== "Unknown") {
+      $("#routeAuthorLink").attr("href", C.appUrl(`user/${encodeURIComponent(String(authorLabel).toLowerCase())}`));
+    } else {
+      $("#routeAuthorLink").attr("href", "#");
+    }
     const createdLabel = route.createdAt ? C.formatDate(route.createdAt) : "—";
     $("#routeMeta").text(`${createdLabel} · ${route.locations.length} stops · ★ ${route.rating ?? 4}`);
     $("#routeDesc").text(route.description);
@@ -83,6 +185,8 @@
       })
       .join("");
     $("#routeLocations").html(locHtml);
+    renderSimilarRoutes(route, routes);
+    renderComments(route.id);
 
     const savedSet = new Set(saved || []);
     C.updateRouteButtons(route, savedSet);
@@ -131,7 +235,63 @@
       }
     });
 
-    $("#btnCmt").on("click", () => C.showToast("Comment section is placeholder only.", "info"));
+    $("#btnCmt").on("click", () => {
+      const text = String($("#cmt").val() || "").trim();
+      if (!text) {
+        C.showToast("Please enter a comment.", "error");
+        return;
+      }
+      const next = routeComments(route.id);
+      next.push({
+        author: boot.username || session?.username || "you",
+        text,
+        createdAt: C.nowIso(),
+      });
+      saveRouteComments(route.id, next);
+      $("#cmt").val("");
+      renderComments(route.id);
+      C.showToast("Comment added.", "success");
+    });
+
+    $("#btnDuplicate").on("click", () => {
+      const me = session || C.getSession();
+      if (!me) {
+        C.showToast("Please sign in first.", "error");
+        return;
+      }
+      const nextRoutes = C.readStore(C.STORAGE_KEYS.routes, []);
+      const nextId = `r_${Math.floor(Math.random() * 1000000)}`;
+      const cloned = {
+        ...route,
+        id: nextId,
+        authorId: me.userId,
+        authorUsername: me.username,
+        title: `${route.title} (copy)`,
+        createdAt: C.nowIso(),
+        updatedAt: C.nowIso(),
+        locations: (route.locations || [])
+          .slice()
+          .sort((a, b) => a.order - b.order)
+          .map((loc, i) => ({ ...loc, order: i + 1 })),
+      };
+      nextRoutes.push(cloned);
+      C.writeStore(C.STORAGE_KEYS.routes, nextRoutes);
+      C.showToast("Route duplicated to your account.", "success");
+      window.setTimeout(() => {
+        window.location.href = C.routeDetailUrl(nextId);
+      }, 350);
+    });
+
+    $("#btnCompleted").on("click", () => C.showToast("Marked as completed.", "success"));
+    $("#btnSubmitRating").on("click", () => {
+      const rating = String($("#ratingSelect").val() || "").trim();
+      if (!rating) {
+        C.showToast("Please choose a rating first.", "error");
+        return;
+      }
+      C.showToast(`Rating submitted: ${rating}/5.`, "success");
+    });
+    $("#btnReport").on("click", () => C.showToast("Report submitted. Thanks for your feedback.", "success"));
 
     $("#btnDeleteRoute").on("click", () => {
       if (!isOwner) return;
