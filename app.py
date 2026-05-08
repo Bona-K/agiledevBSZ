@@ -37,6 +37,7 @@ db.init_app(app)
 # ---------------------------------------------------------------------------
 
 def seed_demo_users():
+    """Insert demo accounts on first run. Skips existing usernames."""
     demo_accounts = [
         {
             "username": "alex",
@@ -77,7 +78,7 @@ with app.app_context():
     seed_demo_users()
 
 # ---------------------------------------------------------------------------
-# Mock data
+# Static data
 # ---------------------------------------------------------------------------
 
 THEMES = ["first date", "picnic", "active day", "hidden gems"]
@@ -87,6 +88,7 @@ THEMES = ["first date", "picnic", "active day", "hidden gems"]
 # ---------------------------------------------------------------------------
 
 def current_user():
+    """Return the logged-in User object from session, or None."""
     user_id = session.get("user_id")
     if not user_id:
         return None
@@ -95,7 +97,22 @@ def current_user():
 
 @app.context_processor
 def inject_template_globals():
+    """
+    Inject shared variables into every template:
+    - current_user    : User object or None
+    - server_username : username string for legacy templates
+    - myvibe_bootstrap: auth state dict for JS
+    - unread_count    : unread notification count for nav badge
+    """
     user = current_user()
+
+    unread_count = 0
+    if user:
+        unread_count = Notification.query.filter_by(
+            recipient_id = user.id,
+            is_read      = False,
+        ).count()
+
     return {
         "current_user":    user,
         "server_username": user.username if user else None,
@@ -104,10 +121,12 @@ def inject_template_globals():
             "username":        user.username if user else None,
             "userId":          user.id if user else None,
         },
+        "unread_count": unread_count,
     }
 
 
 def login_required(f):
+    """Redirect unauthenticated requests to the login page."""
     @wraps(f)
     def decorated(*args, **kwargs):
         if session.get("user_id") is None:
@@ -116,7 +135,7 @@ def login_required(f):
     return decorated
 
 # ---------------------------------------------------------------------------
-# Routes
+# Auth routes
 # ---------------------------------------------------------------------------
 
 @app.route("/")
@@ -193,6 +212,9 @@ def logout():
     session.clear()
     return redirect(url_for("index"))
 
+# ---------------------------------------------------------------------------
+# Main page routes
+# ---------------------------------------------------------------------------
 
 @app.route("/dashboard")
 @login_required
@@ -247,6 +269,9 @@ def profile():
         following_count=following_count,
     )
 
+# ---------------------------------------------------------------------------
+# Change password
+# ---------------------------------------------------------------------------
 
 @app.route("/change-password", methods=["GET", "POST"])
 @login_required
@@ -299,16 +324,21 @@ def change_password():
 
     return render_template("change_password.html", active_page="profile")
 
+# ---------------------------------------------------------------------------
+# User public profile
+# ---------------------------------------------------------------------------
 
 @app.route("/user/<username>")
 @login_required
 def user_profile(username):
+    """Public profile page for any user. Redirects to /profile if viewing own page."""
     me = current_user()
 
     profile_user = User.query.filter_by(username=username).first()
     if not profile_user:
         abort(404)
 
+    # Redirect to own profile if the viewer is the same user
     if me and me.id == profile_user.id:
         return redirect(url_for("profile"))
 
@@ -331,9 +361,12 @@ def user_profile(username):
         is_following=is_following,
         follower_count=follower_count,
         following_count=following_count,
-        user_routes=[],  # route_service는 팀원 PR 머지 후 연결
+        user_routes=[],  # Connected after team PR route_service merge
     )
 
+# ---------------------------------------------------------------------------
+# Follow / Unfollow
+# ---------------------------------------------------------------------------
 
 def _places_upload_dir() -> str:
     path = os.path.join(app.root_path, "static", "uploads", "places")
@@ -411,6 +444,10 @@ def api_upload_place_photo():
 @app.route("/follow/<username>", methods=["POST"])
 @login_required
 def follow_user(username):
+    """
+    Toggle follow state between the current user and the target user.
+    Returns JSON with updated is_following and follower_count.
+    """
     me = current_user()
     if me is None:
         return jsonify(ok=False, error="Not signed in."), 401
@@ -428,10 +465,12 @@ def follow_user(username):
     ).first()
 
     if existing:
+        # Unfollow — remove the Follow row
         db.session.delete(existing)
         db.session.commit()
         is_following = False
     else:
+        # Follow — create Follow row and a follow Notification
         new_follow = Follow(
             follower_id  = me.id,
             following_id = profile_user.id,
@@ -455,6 +494,81 @@ def follow_user(username):
         follower_count=follower_count,
     )
 
+# ---------------------------------------------------------------------------
+# Notifications
+# ---------------------------------------------------------------------------
+
+@app.route("/notifications")
+@login_required
+def notifications():
+    """List all notifications for the current user, newest first."""
+    user = current_user()
+
+    notifs = (
+        Notification.query
+        .filter_by(recipient_id=user.id)
+        .order_by(Notification.created_at.desc())
+        .all()
+    )
+
+    # Attach sender User objects for display
+    sender_ids = {n.sender_id for n in notifs if n.sender_id}
+    senders    = {u.id: u for u in User.query.filter(User.id.in_(sender_ids)).all()}
+
+    notifications_with_sender = [
+        {"notification": n, "sender": senders.get(n.sender_id)}
+        for n in notifs
+    ]
+
+    unread_count = sum(1 for n in notifs if not n.is_read)
+
+    return render_template(
+        "notifications.html",
+        active_page="notifications",
+        notifications_with_sender=notifications_with_sender,
+        unread_count=unread_count,
+    )
+
+
+@app.route("/notifications/read", methods=["POST"])
+@login_required
+def notification_read():
+    """Mark a single notification as read. Accepts JSON body: {notification_id: int}."""
+    user = current_user()
+    data = request.get_json(silent=True) or {}
+    notif_id = data.get("notification_id")
+
+    if not notif_id:
+        return jsonify(ok=False, error="notification_id is required."), 400
+
+    notif = Notification.query.filter_by(
+        id           = notif_id,
+        recipient_id = user.id,
+    ).first()
+
+    if not notif:
+        return jsonify(ok=False, error="Notification not found."), 404
+
+    notif.is_read = True
+    db.session.commit()
+
+    return jsonify(ok=True)
+
+
+@app.route("/notifications/read-all", methods=["POST"])
+@login_required
+def notification_read_all():
+    """Mark all notifications for the current user as read."""
+    user = current_user()
+
+    Notification.query.filter_by(
+        recipient_id = user.id,
+        is_read      = False,
+    ).update({"is_read": True})
+
+    db.session.commit()
+
+    return jsonify(ok=True)
 
 @app.route("/route/<route_id>")
 @login_required

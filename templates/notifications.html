@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications · MyVibe{% endblock %}
+{% block data_page %}notifications{% endblock %}
+
+{% block content %}
+<main class="mx-auto w-[94vw] max-w-[1600px] px-6 py-10">
+
+  <!-- Page header -->
+  <section class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <div class="text-sm font-semibold text-slate-600">Activity</div>
+      <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Notifications</h1>
+      <p class="mt-2 text-sm text-slate-600">
+        {% if unread_count > 0 %}
+          You have <span class="font-semibold text-slate-900">{{ unread_count }}</span> unread notification{{ 's' if unread_count != 1 else '' }}.
+        {% else %}
+          You're all caught up.
+        {% endif %}
+      </p>
+    </div>
+
+    <!-- Mark all as read button -->
+    {% if notifications_with_sender %}
+    <button id="btnMarkAllRead"
+            type="button"
+            class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50">
+      Mark all as read
+    </button>
+    {% endif %}
+  </section>
+
+  <!-- Notification list -->
+  <section class="mt-6">
+    {% if notifications_with_sender %}
+    <ul class="space-y-2">
+      {% for item in notifications_with_sender %}
+      {% set n = item.notification %}
+      {% set sender = item.sender %}
+
+      <li id="notif-{{ n.id }}"
+          class="rounded-2xl border shadow-sm transition
+                 {% if not n.is_read %}
+                   border-sky-200 bg-white
+                 {% else %}
+                   border-slate-200 bg-slate-50
+                 {% endif %}">
+        <div class="flex items-start gap-4 p-4">
+
+          <!-- Type icon -->
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl
+                      {% if n.type == 'follow' %}bg-violet-100 text-violet-700
+                      {% elif n.type == 'like' %}bg-rose-100 text-rose-600
+                      {% elif n.type == 'comment' %}bg-sky-100 text-sky-700
+                      {% else %}bg-slate-100 text-slate-600{% endif %}">
+            {% if n.type == 'follow' %}
+              👤
+            {% elif n.type == 'like' %}
+              ❤️
+            {% elif n.type == 'comment' %}
+              💬
+            {% else %}
+              🔔
+            {% endif %}
+          </div>
+
+          <!-- Message -->
+          <div class="min-w-0 flex-1">
+            <p class="text-sm {% if not n.is_read %}font-semibold text-slate-900{% else %}text-slate-600{% endif %}">
+              {% if n.type == 'follow' %}
+                <span class="font-semibold">{{ sender.username if sender else 'Someone' }}</span>
+                started following you.
+              {% elif n.type == 'like' %}
+                <span class="font-semibold">{{ sender.username if sender else 'Someone' }}</span>
+                liked your route.
+              {% elif n.type == 'comment' %}
+                <span class="font-semibold">{{ sender.username if sender else 'Someone' }}</span>
+                commented on your route.
+              {% else %}
+                You have a new notification.
+              {% endif %}
+            </p>
+            <p class="mt-1 text-xs text-slate-500">
+              {{ n.created_at.strftime('%b %d, %Y · %H:%M') if n.created_at else '—' }}
+            </p>
+          </div>
+
+          <!-- Unread indicator dot -->
+          {% if not n.is_read %}
+          <div class="mt-1 h-2 w-2 shrink-0 rounded-full bg-sky-500"></div>
+          {% endif %}
+
+          <!-- Mark as read button (single) -->
+          {% if not n.is_read %}
+          <button type="button"
+                  data-notif-id="{{ n.id }}"
+                  class="btnMarkRead shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+            Mark read
+          </button>
+          {% endif %}
+
+        </div>
+
+        <!-- Left border accent for unread -->
+        {% if not n.is_read %}
+        <div class="absolute left-0 top-0 h-full w-1 rounded-l-2xl bg-sky-400"></div>
+        {% endif %}
+      </li>
+
+      {% endfor %}
+    </ul>
+
+    {% else %}
+    <!-- Empty state -->
+    <div class="rounded-3xl border border-slate-200 bg-white/70 p-12 text-center shadow-sm backdrop-blur">
+      <div class="text-4xl">🔔</div>
+      <div class="mt-4 text-base font-semibold text-slate-700">No notifications yet.</div>
+      <p class="mt-2 text-sm text-slate-500">
+        When someone follows you or interacts with your routes, it will show up here.
+      </p>
+      <a href="{{ url_for('explore') }}"
+         class="mt-6 inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800">
+        Explore routes
+      </a>
+    </div>
+    {% endif %}
+  </section>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Mark a single notification as read via AJAX
+  document.querySelectorAll(".btnMarkRead").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      const notifId = parseInt(btn.getAttribute("data-notif-id"), 10);
+      try {
+        const res = await fetch("/notifications/read", {
+          method:      "POST",
+          credentials: "same-origin",
+          headers:     { "Content-Type": "application/json" },
+          body:        JSON.stringify({ notification_id: notifId }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          // Update the notification card style without a full reload
+          const card = document.getElementById("notif-" + notifId);
+          if (card) {
+            card.classList.remove("border-sky-200", "bg-white");
+            card.classList.add("border-slate-200", "bg-slate-50");
+            btn.remove();
+            const dot = card.querySelector(".bg-sky-500");
+            if (dot) dot.remove();
+            const text = card.querySelector("p");
+            if (text) {
+              text.classList.remove("font-semibold", "text-slate-900");
+              text.classList.add("text-slate-600");
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to mark notification as read:", err);
+      }
+    });
+  });
+
+  // Mark all notifications as read
+  const btnMarkAll = document.getElementById("btnMarkAllRead");
+  if (btnMarkAll) {
+    btnMarkAll.addEventListener("click", async function () {
+      try {
+        const res = await fetch("/notifications/read-all", {
+          method:      "POST",
+          credentials: "same-origin",
+          headers:     { "Content-Type": "application/json" },
+        });
+        const data = await res.json();
+        if (data.ok) {
+          // Reload the page to reflect all-read state
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error("Failed to mark all notifications as read:", err);
+      }
+    });
+  }
+</script>
+{% endblock %}
