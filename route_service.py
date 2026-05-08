@@ -248,6 +248,51 @@ def list_routes_for_author(author_id: int) -> list[Route]:
     )
 
 
+def duplicate_route_for_user(source_route_id: int, new_author_id: int) -> Optional[Route]:
+    """
+    Clone a visible route into a new route owned by new_author_id.
+    Returns None when source route does not exist.
+    """
+    source = get_route_by_id(int(source_route_id))
+    if source is None:
+        return None
+
+    aid = _require_author_id(new_author_id)
+    _author_user(aid)
+
+    clone = Route(
+        author_id=aid,
+        title=source.title,
+        description=source.description,
+        theme=source.theme,
+        tags=list(source.tags or []),
+        is_public=bool(source.is_public),
+    )
+    db.session.add(clone)
+    db.session.flush()
+
+    for loc in sorted(source.locations, key=lambda x: x.stop_order):
+        db.session.add(
+            RouteLocation(
+                route_id=clone.id,
+                stop_order=loc.stop_order,
+                name=loc.name,
+                time=loc.time,
+                description=loc.description,
+                parking=loc.parking,
+                photo_url=loc.photo_url,
+                lat=loc.lat,
+                lng=loc.lng,
+            )
+        )
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return clone
+
+
 def serialize_route_for_client(route: Route) -> dict[str, Any]:
     """
     One JSON-shaped dict for create response, detail, edit prefill, and listings.

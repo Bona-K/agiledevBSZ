@@ -253,7 +253,7 @@
       C.showToast("Comment added.", "success");
     });
 
-    $("#btnDuplicate").on("click", () => {
+    $("#btnDuplicate").on("click", async () => {
       const me = session || C.getSession();
       if (!me) {
         C.showToast("Please sign in first.", "error");
@@ -266,7 +266,7 @@
         id: nextId,
         authorId: me.userId,
         authorUsername: me.username,
-        title: `${route.title} (copy)`,
+        title: route.title,
         createdAt: C.nowIso(),
         updatedAt: C.nowIso(),
         locations: (route.locations || [])
@@ -276,9 +276,9 @@
       };
       nextRoutes.push(cloned);
       C.writeStore(C.STORAGE_KEYS.routes, nextRoutes);
-      C.showToast("Route duplicated to your account.", "success");
+      C.showToast("Route duplicated. Opening edit mode…", "success");
       window.setTimeout(() => {
-        window.location.href = C.routeDetailUrl(nextId);
+        window.location.href = C.createRouteUrl(nextId, "edit");
       }, 350);
     });
 
