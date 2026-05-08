@@ -6,9 +6,11 @@
   const C = window.AppCore;
   if (!C) return;
   const COMMENTS_KEY = "mv_route_comments_v1";
+  const CREATE_DRAFT_KEY = "mv_create_route_draft_v1";
 
   function commentsStore() {
-    return C.readStore(COMMENTS_KEY, {});
+    const store = C.readStore(COMMENTS_KEY, {});
+    return store && typeof store === "object" ? store : {};
   }
 
   function writeCommentsStore(store) {
@@ -18,7 +20,8 @@
   function routeComments(routeId) {
     const key = String(routeId || "");
     const store = commentsStore();
-    return Array.isArray(store[key]) ? store[key] : [];
+    const list = store[key];
+    return Array.isArray(list) ? list : [];
   }
 
   function saveRouteComments(routeId, comments) {
@@ -112,7 +115,7 @@
     const routes = C.readStore(C.STORAGE_KEYS.routes, []);
     const saved = C.readStore(C.STORAGE_KEYS.saved, []);
     const session = C.getSession();
-    const boot = global.MYVIBE_BOOTSTRAP || {};
+    const boot = window.MYVIBE_BOOTSTRAP || {};
 
     const pathParts = window.location.pathname.split("/").filter(Boolean);
     const pathRouteId = pathParts[0] === "route" ? decodeURIComponent(pathParts[1] || "") : "";
@@ -121,8 +124,8 @@
 
     let route = null;
     if (numericId) {
-      if (global.MYVIBE_ROUTE) {
-        route = { ...global.MYVIBE_ROUTE, id: String(global.MYVIBE_ROUTE.id) };
+      if (window.MYVIBE_ROUTE) {
+        route = { ...window.MYVIBE_ROUTE, id: String(window.MYVIBE_ROUTE.id) };
       } else {
         try {
           const data = await C.fetchJson(`api/routes/${encodeURIComponent(routeId)}`);
@@ -259,26 +262,39 @@
         C.showToast("Please sign in first.", "error");
         return;
       }
-      const nextRoutes = C.readStore(C.STORAGE_KEYS.routes, []);
-      const nextId = `r_${Math.floor(Math.random() * 1000000)}`;
-      const cloned = {
-        ...route,
-        id: nextId,
-        authorId: me.userId,
-        authorUsername: me.username,
-        title: route.title,
-        createdAt: C.nowIso(),
-        updatedAt: C.nowIso(),
-        locations: (route.locations || [])
-          .slice()
-          .sort((a, b) => a.order - b.order)
-          .map((loc, i) => ({ ...loc, order: i + 1 })),
+
+      const orderedLocations = (route.locations || [])
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .map((loc, i) => ({
+          order: i + 1,
+          name: String(loc.name || "").trim(),
+          time: String(loc.time || "").trim(),
+          desc: String(loc.desc || loc.description || "").trim(),
+          parking: String(loc.parking || "unknown").trim() || "unknown",
+          photoUrl: loc.photoUrl || null,
+        }));
+
+      const duplicateDraft = {
+        title: String(route.title || "").trim(),
+        theme: String(route.theme || "").trim(),
+        tags: (route.tags || []).join(", "),
+        description: String(route.description || "").trim(),
+        isPublic: Boolean(route.isPublic),
+        locations: orderedLocations,
+        savedAt: C.nowIso(),
       };
-      nextRoutes.push(cloned);
-      C.writeStore(C.STORAGE_KEYS.routes, nextRoutes);
-      C.showToast("Route duplicated. Opening edit mode…", "success");
+
+      try {
+        window.localStorage.setItem(CREATE_DRAFT_KEY, JSON.stringify(duplicateDraft));
+      } catch {
+        C.showToast("Could not prepare duplicate draft.", "error");
+        return;
+      }
+
+      C.showToast("Duplicate loaded. Opening create route…", "success");
       window.setTimeout(() => {
-        window.location.href = C.createRouteUrl(nextId, "edit");
+        window.location.href = C.appUrl("create-route");
       }, 350);
     });
 
