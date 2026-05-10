@@ -378,7 +378,24 @@
 
   // Shared route card renderer for dashboard/explore/profile pages.
   function routeCardHtml(route, users, savedIds, options = {}) {
-    const author = users.find((u) => u.id === route.authorId);
+    const uid = route.authorId;
+    let author =
+      (Array.isArray(users) ? users : []).find((u) => u.id === uid) ||
+      (Array.isArray(users) ? users : []).find((u) => String(u.id) === String(uid));
+    if (!author && route.authorUsername) {
+      const uname = String(route.authorUsername).trim().toLowerCase();
+      author = (Array.isArray(users) ? users : []).find(
+        (u) => String(u.username || "").toLowerCase() === uname
+      );
+    }
+    const authorLabel =
+      (author && author.name) ||
+      String(route.authorUsername || "")
+        .trim()
+        .replace(/^@/, "") ||
+      "Unknown";
+    const initialsSource = author && author.name ? author.name : authorLabel;
+    const avatarTone = userAvatarTone(author || { username: authorLabel });
     const savedSet = new Set(savedIds || []);
     const saved = savedSet.has(route.id);
     const likedIds = new Set(readStore("mv_liked_route_ids", []));
@@ -386,7 +403,6 @@
     const themeKey = normalizeTheme(route.theme);
     const visual = themeVisual(themeKey);
     const badge = routeBadge(route);
-    const avatarTone = userAvatarTone(author);
     const stops = Number(route.locations?.length || 0);
     const showPhotoCover = Boolean(options.showPhotoCover);
     const tags = (route.tags || []).slice(0, 3);
@@ -417,9 +433,9 @@
         <div class="mt-3 flex items-center justify-between gap-2">
           <div class="flex min-w-0 items-center gap-2">
             <div class="flex h-[22px] w-[22px] items-center justify-center rounded-full text-[10px] font-medium" style="background:${avatarTone.bg};color:${avatarTone.text};">
-              ${escapeHtml(initials(author ? author.name : "Unknown"))}
+              ${escapeHtml(initials(initialsSource))}
             </div>
-            <div class="truncate text-xs text-slate-500">${escapeHtml(author ? author.name : "Unknown")}</div>
+            <div class="truncate text-xs text-slate-500">${escapeHtml(authorLabel)}</div>
             <div class="rounded-full px-2 py-0.5 text-[10px] font-medium ${saved ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"}">${saved ? "saved" : "open"}</div>
           </div>
           <button type="button" data-route-id="${escapeHtml(route.id)}" class="routeLikeBtn route-like-btn ${isLiked ? "is-liked" : ""} inline-flex items-center gap-1 px-2 py-1 text-xs font-medium">

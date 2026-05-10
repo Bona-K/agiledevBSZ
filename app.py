@@ -13,6 +13,7 @@ from route_service import (
     delete_route_for_owner,
     duplicate_route_for_user,
     get_route_for_viewer,
+    list_public_routes,
     list_routes_for_author,
     serialize_route_for_client,
     update_route_for_owner,
@@ -482,6 +483,17 @@ def api_list_my_routes():
     if user is None:
         return jsonify(ok=False, error="Not signed in."), 401
     routes = list_routes_for_author(user.id)
+    return jsonify(ok=True, routes=[serialize_route_for_client(route) for route in routes])
+
+
+@app.route("/api/routes/public", methods=["GET"])
+@login_required
+def api_list_public_routes():
+    """All public routes for home/explore-style listings (newest first, capped)."""
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    routes = list_public_routes()
     return jsonify(ok=True, routes=[serialize_route_for_client(route) for route in routes])
 
 
