@@ -211,8 +211,15 @@
         <input id="locPhoto" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="mt-2 block w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white" />
         <p id="locPhotoStatus" class="mt-1 text-xs text-slate-500"></p>
         <p id="errLocPhoto" class="mt-1 hidden text-xs font-semibold text-rose-600"></p>
-        <div id="locPhotoPreviewWrap" class="mt-2 hidden">
+        <div id="locPhotoPreviewWrap" class="mt-2 hidden space-y-2">
           <img id="locPhotoPreview" src="" alt="Location preview" class="max-h-40 rounded-xl border border-slate-200 object-cover" />
+          <button
+            id="btnRemoveLocPhoto"
+            type="button"
+            class="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-800 shadow-sm hover:bg-rose-50"
+          >
+            Remove photo
+          </button>
         </div>
       </div>
       <div class="flex gap-2">
