@@ -70,19 +70,29 @@
       setTab(String($(this).attr("data-tab")));
     });
 
-    $("#myRoutesGrid").on("click", ".btnDeleteMyRoute", function () {
+    $("#myRoutesGrid").on("click", ".btnDeleteMyRoute", async function () {
       const routeId = String($(this).attr("data-route-id") || "");
       if (!routeId) return;
+      if (!window.confirm("Delete this route? This cannot be undone.")) return;
       if (/^\d+$/.test(routeId)) {
-        C.showToast("Delete is not available yet.", "error");
+        try {
+          await C.fetchJson(`api/routes/${encodeURIComponent(routeId)}`, { method: "DELETE" });
+        } catch (err) {
+          if (err.status === 403) C.showToast("You can only delete your own routes.", "error");
+          else C.showToast(err.body?.error || err.message || "Could not delete route.", "error");
+          return;
+        }
+        const nextSaved = C.readStore(C.STORAGE_KEYS.saved, []).filter((id) => String(id) !== routeId);
+        C.writeStore(C.STORAGE_KEYS.saved, nextSaved);
+        await renderPanels();
+        C.showToast("Route deleted.", "success");
         return;
       }
-      if (!window.confirm("Delete this route?")) return;
       const nextRoutes = C.readStore(C.STORAGE_KEYS.routes, []).filter((r) => r.id !== routeId);
       C.writeStore(C.STORAGE_KEYS.routes, nextRoutes);
       const nextSaved = C.readStore(C.STORAGE_KEYS.saved, []).filter((id) => id !== routeId);
       C.writeStore(C.STORAGE_KEYS.saved, nextSaved);
-      renderPanels();
+      await renderPanels();
       C.showToast("Route deleted (mock).", "success");
     });
 

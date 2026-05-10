@@ -202,14 +202,6 @@
     if (isOwner) {
       $("#ownerActions").removeClass("hidden");
       $("#btnEditRoute").attr("href", C.createRouteUrl(route.id, "edit"));
-      if (numericId) {
-        $("#btnEditRoute")
-          .off("click.dbEdit")
-          .on("click.dbEdit", (e) => {
-            e.preventDefault();
-            C.showToast("Editing server-saved routes is coming soon.", "info");
-          });
-      }
     }
 
     $("#btnLike").on("click", () => {
@@ -309,13 +301,25 @@
     });
     $("#btnReport").on("click", () => C.showToast("Report submitted. Thanks for your feedback.", "success"));
 
-    $("#btnDeleteRoute").on("click", () => {
+    $("#btnDeleteRoute").on("click", async () => {
       if (!isOwner) return;
+      if (!window.confirm("Delete this route? This action cannot be undone.")) return;
       if (numericId) {
-        C.showToast("Deleting server-saved routes is not available yet.", "info");
+        try {
+          await C.fetchJson(`api/routes/${encodeURIComponent(String(route.id))}`, { method: "DELETE" });
+        } catch (err) {
+          if (err.status === 403) C.showToast("You can only delete your own routes.", "error");
+          else C.showToast(err.body?.error || err.message || "Could not delete route.", "error");
+          return;
+        }
+        const nextSaved = (saved || []).filter((id) => String(id) !== String(route.id));
+        C.writeStore(C.STORAGE_KEYS.saved, nextSaved);
+        C.showToast("Route deleted.", "success");
+        window.setTimeout(() => {
+          window.location.href = C.appUrl("dashboard");
+        }, 350);
         return;
       }
-      if (!window.confirm("Delete this route? This action cannot be undone.")) return;
       const nextRoutes = routes.filter((r) => r.id !== route.id);
       C.writeStore(C.STORAGE_KEYS.routes, nextRoutes);
       const nextSaved = (saved || []).filter((id) => id !== route.id);
