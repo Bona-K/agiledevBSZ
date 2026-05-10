@@ -53,7 +53,8 @@ def _prepare_create_route_data(
     author_id: Optional[int], payload: dict[str, Any]
 ) -> tuple[dict[str, str], Optional[tuple[int, str, str, str, list[str], bool, list[dict[str, Any]]]]]:
     """
-    Validate payload for create. Returns (errors, None) or ({}, (aid, title, description, theme, tags, is_public, validated_stops)).
+    Validate payload for create/update.
+    Returns (errors, None) or ({}, (aid, title, description, theme, tags, is_public, cover_photo_url, validated_stops)).
     """
     errors: dict[str, str] = {}
     try:
@@ -166,7 +167,16 @@ def _prepare_create_route_data(
             }
         )
 
-    return {}, (aid, title, description, theme, tags, is_public, validated_stops)
+    cover_raw = payload.get("photoUrl")
+    cover_photo_url = None
+    if cover_raw is not None:
+        s = str(cover_raw).strip()
+        if s:
+            if len(s) > 500:
+                return {"photoUrl": "Cover image URL is too long."}, None
+            cover_photo_url = s
+
+    return {}, (aid, title, description, theme, tags, is_public, cover_photo_url, validated_stops)
 
 
 def create_route_from_payload(author_id: Optional[int], payload: dict[str, Any]) -> Route:
@@ -174,7 +184,7 @@ def create_route_from_payload(author_id: Optional[int], payload: dict[str, Any])
     Insert a Route and its RouteLocation rows in one transaction.
 
     Payload keys align with the create-route form / localStorage mock:
-      title, description, theme, tags (list[str]), isPublic (bool), locations (list)
+      title, description, theme, tags (list[str]), isPublic (bool), photoUrl (optional route cover), locations (list)
     Each location: order, name, time, desc, parking; optional photoUrl, lat, lng.
     """
     prep = _prepare_create_route_data(author_id, payload)
@@ -182,7 +192,7 @@ def create_route_from_payload(author_id: Optional[int], payload: dict[str, Any])
     if errors or data is None:
         raise RouteValidationError(errors or {"": "Validation failed."})
 
-    aid, title, description, theme, tags, is_public, validated_stops = data
+    aid, title, description, theme, tags, is_public, cover_photo_url, validated_stops = data
 
     route = Route(
         author_id=aid,
@@ -191,6 +201,7 @@ def create_route_from_payload(author_id: Optional[int], payload: dict[str, Any])
         theme=theme,
         tags=tags,
         is_public=is_public,
+        cover_photo_url=cover_photo_url,
     )
     db.session.add(route)
     db.session.flush()
@@ -278,6 +289,7 @@ def duplicate_route_for_user(source_route_id: int, new_author_id: int) -> Option
         theme=source.theme,
         tags=list(source.tags or []),
         is_public=bool(source.is_public),
+        cover_photo_url=getattr(source, "cover_photo_url", None),
     )
     db.session.add(clone)
     db.session.flush()
@@ -328,13 +340,14 @@ def update_route_for_owner(route_id: int, owner_id: int, payload: dict[str, Any]
     if errors or data is None:
         raise RouteValidationError(errors or {"": "Validation failed."})
 
-    _aid, title, description, theme, tags, is_public, validated_stops = data
+    _aid, title, description, theme, tags, is_public, cover_photo_url, validated_stops = data
 
     route.title = title
     route.description = description
     route.theme = theme
     route.tags = tags
     route.is_public = is_public
+    route.cover_photo_url = cover_photo_url
 
     # Replace stops so UI order matches persisted stop_order exactly.
     route.locations.clear()
@@ -403,6 +416,7 @@ def serialize_route_for_client(route: Route) -> dict[str, Any]:
         "theme": route.theme,
         "tags": list(route.tags or []),
         "isPublic": bool(route.is_public),
+        "photoUrl": getattr(route, "cover_photo_url", None) or None,
         "createdAt": _iso_utc_z(route.created_at),
         "updatedAt": _iso_utc_z(route.updated_at),
         "likes": 0,

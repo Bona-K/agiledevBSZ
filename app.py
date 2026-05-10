@@ -3,6 +3,7 @@ import secrets
 
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
 from functools import wraps
+from sqlalchemy import text
 from werkzeug.utils import secure_filename
 
 from models import db, User, Follow, Notification
@@ -18,11 +19,6 @@ from route_service import (
     serialize_route_for_client,
     update_route_for_owner,
 )
-from utils import check_password, hash_password
-from flask import Flask, render_template, redirect, url_for, request, session, abort
-from functools import wraps
-
-from models import db, User, Follow, Notification
 from utils import check_password, hash_password
 
 app = Flask(__name__)
@@ -78,8 +74,24 @@ def seed_demo_users():
     db.session.commit()
 
 
+def ensure_route_cover_photo_url_column():
+    """SQLite: add routes.cover_photo_url if missing (db.create_all does not ALTER)."""
+    try:
+        if db.engine.dialect.name != "sqlite":
+            return
+        rows = db.session.execute(text("PRAGMA table_info(routes)")).fetchall()
+        col_names = {row[1] for row in rows}
+        if "cover_photo_url" in col_names:
+            return
+        db.session.execute(text("ALTER TABLE routes ADD COLUMN cover_photo_url VARCHAR(500)"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
 with app.app_context():
     db.create_all()
+    ensure_route_cover_photo_url_column()
     seed_demo_users()
 
 # ---------------------------------------------------------------------------

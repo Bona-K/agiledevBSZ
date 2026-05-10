@@ -13,6 +13,10 @@
   };
   const MOCK_VERSION = 3;
 
+  /** One shared cover for cards when no custom image or when the image fails to load. */
+  const ROUTE_CARD_DEFAULT_COVER =
+    "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80";
+
   function nowIso() {
     return new Date().toISOString();
   }
@@ -333,14 +337,19 @@
     return (Math.max(stops, 1) * 0.7 + 0.7).toFixed(1);
   }
 
+  function normalizeRouteCoverUrl(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return null;
+    if (/^https?:\/\//i.test(s)) return s;
+    if (s.startsWith("//")) return `${global.location.protocol}${s}`;
+    if (s.startsWith("/")) return s;
+    return appUrl(s.replace(/^\/*/, ""));
+  }
+
   function routePhoto(route) {
-    if (route?.photoUrl) return String(route.photoUrl);
-    const byId = {
-      r_1: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80",
-      r_2: "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=1200&q=80",
-      r_3: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80",
-    };
-    return byId[route?.id] || "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80";
+    const custom = normalizeRouteCoverUrl(route?.photoUrl);
+    if (custom) return custom;
+    return ROUTE_CARD_DEFAULT_COVER;
   }
 
   // Shared interaction used by any page rendering route cards.
@@ -416,7 +425,7 @@
           ${
             showPhotoCover
               ? `<div class="route-thumb relative overflow-hidden border border-slate-200 bg-slate-100">
-                   <img src="${escapeHtml(routePhoto(route))}" alt="${escapeHtml(route.title)} cover photo" class="h-full w-full object-cover" loading="lazy" />
+                   <img src="${escapeHtml(routePhoto(route))}" alt="${escapeHtml(route.title)} cover photo" class="min-h-[120px] h-full w-full object-cover" loading="lazy" data-fallback-cover="${escapeHtml(ROUTE_CARD_DEFAULT_COVER)}" onerror="this.onerror=null;this.src=this.dataset.fallbackCover" />
                    <div class="absolute left-3 top-3 rounded-full px-2 py-1 text-[11px] font-medium" style="background:${badge.bg};color:${badge.color};">${badge.text}</div>
                  </div>`
               : `<div class="route-thumb relative flex items-center justify-center" style="background:${visual.thumbBg};border-color:${visual.thumbBorder};color:${visual.thumbText};">

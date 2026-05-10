@@ -100,6 +100,8 @@ class Route(db.Model):
     # List of tag strings (same shape as front-end tags array).
     tags = db.Column(db.JSON, nullable=False, default=list)
     is_public = db.Column(db.Boolean, nullable=False, default=True)
+    # Optional hero image for cards / detail; same upload pipeline as stop photos.
+    cover_photo_url = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
