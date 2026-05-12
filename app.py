@@ -18,6 +18,11 @@ from route_service import (
     update_route_for_owner,
 )
 from utils import check_password, hash_password
+from flask import Flask, render_template, redirect, url_for, request, session, abort
+from functools import wraps
+
+from models import db, User, Follow, Notification
+from utils import check_password, hash_password
 
 app = Flask(__name__)
 app.secret_key = "myvibe-dev-secret-change-in-production"

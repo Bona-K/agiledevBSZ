@@ -66,6 +66,8 @@
     let locModalMode = "create";
     let editingLocIndex = -1;
     let locPendingPhotoUrl = null;
+    /** True after user explicitly removes photo so save does not fall back to previous URL. */
+    let locPhotoRemoved = false;
     let draftTimer = null;
     let isSubmitting = false;
 
@@ -314,6 +316,7 @@
       editingLocIndex = typeof idx === "number" ? idx : -1;
       clearLocModalErrors();
       locPendingPhotoUrl = null;
+      locPhotoRemoved = false;
       $("#locPhoto").val("");
       $("#locPhotoStatus").text("");
       $("#locPhotoPreviewWrap").addClass("hidden");
@@ -433,6 +436,16 @@
     $("#btnAddLoc").on("click", () => openLocModal("create"));
     $("#btnCloseLocModal, #btnCancelLoc").on("click", closeLocModal);
 
+    $("#btnRemoveLocPhoto").on("click", () => {
+      locPhotoRemoved = true;
+      locPendingPhotoUrl = null;
+      $("#locPhoto").val("");
+      $("#locPhotoPreview").attr("src", "");
+      $("#locPhotoPreviewWrap").addClass("hidden");
+      $("#errLocPhoto").addClass("hidden").text("");
+      $("#locPhotoStatus").text("Photo removed.");
+    });
+
     $("#locPhoto").on("change", async (e) => {
       const file = e.target.files && e.target.files[0];
       $("#errLocPhoto").addClass("hidden").text("");
@@ -441,6 +454,7 @@
       try {
         const url = await uploadPlacePhoto(file);
         locPendingPhotoUrl = url;
+        locPhotoRemoved = false;
         $("#locPhotoPreview").attr("src", url);
         $("#locPhotoPreviewWrap").removeClass("hidden");
         $("#locPhotoStatus").text("Photo attached.");
@@ -472,7 +486,9 @@
       }
       if (!modalOk) return;
 
-      const photoUrl = locPendingPhotoUrl || (locModalMode === "edit" ? locations[editingLocIndex]?.photoUrl : null) || null;
+      const photoUrl = locPhotoRemoved
+        ? null
+        : locPendingPhotoUrl || (locModalMode === "edit" ? locations[editingLocIndex]?.photoUrl : null) || null;
 
       const prev = locModalMode === "edit" ? locations[editingLocIndex] : null;
       const loc = {
