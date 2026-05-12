@@ -9,6 +9,7 @@ from models import db, User, Follow, Notification
 from route_service import (
     RouteValidationError,
     create_route_from_payload,
+    duplicate_route_for_user,
     get_route_for_viewer,
     list_routes_for_author,
     serialize_route_for_client,
@@ -408,6 +409,24 @@ def api_get_route(route_id):
     if route is None:
         return jsonify(ok=False, error="Not found."), 404
     return jsonify(ok=True, route=serialize_route_for_client(route))
+
+
+@app.route("/api/routes/<int:route_id>/duplicate", methods=["POST"])
+@login_required
+def api_duplicate_route(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    source_route = get_route_for_viewer(route_id, user.id)
+    if source_route is None:
+        return jsonify(ok=False, error="Not found."), 404
+    try:
+        cloned = duplicate_route_for_user(route_id, user.id)
+    except Exception:
+        return jsonify(ok=False, error="Could not duplicate route. Try again."), 500
+    if cloned is None:
+        return jsonify(ok=False, error="Not found."), 404
+    return jsonify(ok=True, route=serialize_route_for_client(cloned)), 201
 
 
 @app.route("/api/my-routes", methods=["GET"])

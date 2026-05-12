@@ -16,7 +16,7 @@
           <span id="routeTheme" class="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
             {{ route.theme if route else '—' }}
           </span>
-          <span>by <span id="routeAuthor" class="font-semibold text-slate-800">{{ route.author if route else '—' }}</span></span>
+          <span>by <a id="routeAuthorLink" href="#" class="font-semibold text-slate-800 hover:text-sky-800"><span id="routeAuthor">{{ route.author if route else '—' }}</span></a></span>
           <span class="text-slate-400">·</span>
           <span id="routeMeta">{{ route.meta if route else '—' }}</span>
         </div>
@@ -29,6 +29,7 @@
         <button id="btnLike" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50" type="button">❤ Like</button>
         <button id="btnSave" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50" type="button">🔖 Save</button>
         <button id="btnShare" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800" type="button">Share</button>
+        <button id="btnDuplicate" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50" type="button">Duplicate</button>
       </div>
     </div>
 
@@ -69,33 +70,41 @@
     </section>
 
     <aside class="rounded-3xl border border-slate-200 bg-white/70 p-5 shadow-sm backdrop-blur">
-      <div class="text-sm font-semibold text-slate-900">Comments (optional)</div>
-      <p class="mt-1 text-sm text-slate-600">Simple placeholder section</p>
-
-      <div class="mt-4 space-y-3">
-        {% for comment in comments %}
-        <div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
-          <div class="text-xs font-semibold text-slate-600">{{ comment.author }} · {{ comment.time }}</div>
-          <div class="mt-2">{{ comment.text }}</div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-4">
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Route actions</div>
+        <div class="mt-3 grid gap-2">
+          <button id="btnCompleted" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50">
+            Mark as completed
+          </button>
+          <div class="flex items-center gap-2">
+            <label for="ratingSelect" class="text-sm font-semibold text-slate-700">Rate</label>
+            <select id="ratingSelect" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-900">
+              <option value="">Select</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+            <button id="btnSubmitRating" type="button" class="rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm font-semibold text-slate-900 hover:bg-slate-50">Submit</button>
+          </div>
+          <button id="btnReport" type="button" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 shadow-sm hover:bg-rose-100">
+            Report
+          </button>
         </div>
-        {% else %}
-        <div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
-          <div class="text-xs font-semibold text-slate-600">mina · 2h ago</div>
-          <div class="mt-2">This route is perfect for weekends!</div>
-        </div>
-        <div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
-          <div class="text-xs font-semibold text-slate-600">alex · 1h ago</div>
-          <div class="mt-2">Could add one more sunset spot.</div>
-        </div>
-        {% endfor %}
       </div>
+
+      <div class="text-sm font-semibold text-slate-900">Comments</div>
+      <p class="mt-1 text-sm text-slate-600">Leave a comment</p>
+
+      <div class="mt-4 space-y-3" id="commentList"></div>
 
       <div class="mt-4">
         <label class="text-sm font-medium text-slate-700" for="cmt">Add comment</label>
         <textarea
           id="cmt"
           class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4"
-          placeholder="Mock input only (no submit logic)"
+          placeholder="Write your comment"
           rows="3"
         ></textarea>
         <button id="btnCmt" type="button"
@@ -104,6 +113,12 @@
         </button>
       </div>
     </aside>
+  </section>
+
+  <section class="mt-6 rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur">
+    <h2 class="text-lg font-semibold text-slate-900">Similar routes</h2>
+    <p class="mt-1 text-sm text-slate-600">Based on theme and tags</p>
+    <div id="similarRoutes" class="mt-4 grid gap-3 md:grid-cols-2"></div>
   </section>
 </main>
 {% endblock %}
