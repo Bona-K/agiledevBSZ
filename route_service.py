@@ -248,6 +248,17 @@ def list_routes_for_author(author_id: int) -> list[Route]:
     )
 
 
+def list_public_routes(limit: int = 500) -> list[Route]:
+    """Dashboard / explore: all public routes, newest first (bounded for safety)."""
+    lim = max(1, min(int(limit), 2000))
+    return (
+        Route.query.filter_by(is_public=True)
+        .order_by(Route.created_at.desc())
+        .limit(lim)
+        .all()
+    )
+
+
 def duplicate_route_for_user(source_route_id: int, new_author_id: int) -> Optional[Route]:
     """
     Clone a visible route into a new route owned by new_author_id.
