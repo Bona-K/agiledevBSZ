@@ -7,18 +7,16 @@ from werkzeug.utils import secure_filename
 
 from models import db, User, Follow, Notification
 from route_service import (
+    RouteOwnershipError,
     RouteValidationError,
     create_route_from_payload,
+    delete_route_for_owner,
     duplicate_route_for_user,
     get_route_for_viewer,
     list_routes_for_author,
     serialize_route_for_client,
+    update_route_for_owner,
 )
-from utils import check_password, hash_password
-from flask import Flask, render_template, redirect, url_for, request, session, abort
-from functools import wraps
-
-from models import db, User, Follow, Notification
 from utils import check_password, hash_password
 
 app = Flask(__name__)
@@ -409,6 +407,49 @@ def api_get_route(route_id):
     if route is None:
         return jsonify(ok=False, error="Not found."), 404
     return jsonify(ok=True, route=serialize_route_for_client(route))
+
+
+@app.route("/api/routes/<int:route_id>", methods=["PATCH", "PUT"])
+@login_required
+def api_update_route(route_id):
+    """Full replace of route fields and ordered locations; author only."""
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, errors={"": "Not signed in."}), 401
+    if not request.is_json:
+        return jsonify(ok=False, errors={"": "Send JSON (Content-Type: application/json)."}), 400
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify(ok=False, errors={"": "Invalid JSON body."}), 400
+    try:
+        route = update_route_for_owner(route_id, user.id, body)
+    except ValueError:
+        return jsonify(ok=False, error="Not found."), 404
+    except RouteOwnershipError:
+        return jsonify(ok=False, error="Forbidden."), 403
+    except RouteValidationError as exc:
+        return jsonify(ok=False, errors=exc.errors), 400
+    except Exception:
+        return jsonify(ok=False, errors={"": "Could not update route. Try again."}), 500
+    return jsonify(ok=True, route=serialize_route_for_client(route))
+
+
+@app.route("/api/routes/<int:route_id>", methods=["DELETE"])
+@login_required
+def api_delete_route(route_id):
+    """Remove route and stops; author only."""
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    try:
+        deleted = delete_route_for_owner(route_id, user.id)
+    except RouteOwnershipError:
+        return jsonify(ok=False, error="Forbidden."), 403
+    except Exception:
+        return jsonify(ok=False, error="Could not delete route. Try again."), 500
+    if not deleted:
+        return jsonify(ok=False, error="Not found."), 404
+    return jsonify(ok=True)
 
 
 @app.route("/api/routes/<int:route_id>/duplicate", methods=["POST"])

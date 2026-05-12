@@ -293,6 +293,85 @@ def duplicate_route_for_user(source_route_id: int, new_author_id: int) -> Option
     return clone
 
 
+class RouteOwnershipError(Exception):
+    """Raised when a mutation targets a route the user does not own."""
+
+    pass
+
+
+def update_route_for_owner(route_id: int, owner_id: int, payload: dict[str, Any]) -> Route:
+    """
+    Replace route metadata and ordered stops for an existing route.
+
+    Raises RouteOwnershipError if the route exists but owner_id is not the author.
+    Raises RouteValidationError on invalid payload.
+    """
+    route = get_route_by_id(int(route_id))
+    if route is None:
+        raise ValueError("Route not found.")
+    if int(route.author_id) != int(owner_id):
+        raise RouteOwnershipError("Not allowed to edit this route.")
+
+    prep = _prepare_create_route_data(int(owner_id), payload)
+    errors, data = prep
+    if errors or data is None:
+        raise RouteValidationError(errors or {"": "Validation failed."})
+
+    _aid, title, description, theme, tags, is_public, validated_stops = data
+
+    route.title = title
+    route.description = description
+    route.theme = theme
+    route.tags = tags
+    route.is_public = is_public
+
+    # Replace stops so UI order matches persisted stop_order exactly.
+    route.locations.clear()
+    db.session.flush()
+
+    for row in validated_stops:
+        db.session.add(
+            RouteLocation(
+                route_id=route.id,
+                stop_order=row["stop_order"],
+                name=row["name"],
+                time=row["time"],
+                description=row["description"],
+                parking=row["parking"],
+                photo_url=row["photo_url"],
+                lat=row["lat"],
+                lng=row["lng"],
+            )
+        )
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return route
+
+
+def delete_route_for_owner(route_id: int, owner_id: int) -> bool:
+    """
+    Permanently remove a route and its stops. Returns True when deleted.
+
+    Raises RouteOwnershipError if the route exists but owner_id is not the author.
+    """
+    route = get_route_by_id(int(route_id))
+    if route is None:
+        return False
+    if int(route.author_id) != int(owner_id):
+        raise RouteOwnershipError("Not allowed to delete this route.")
+    try:
+        db.session.delete(route)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return True
+
+
 def serialize_route_for_client(route: Route) -> dict[str, Any]:
     """
     One JSON-shaped dict for create response, detail, edit prefill, and listings.

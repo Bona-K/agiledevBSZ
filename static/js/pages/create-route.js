@@ -9,7 +9,7 @@
   const DRAFT_KEY = "mv_create_route_draft_v1";
   const DRAFT_DEBOUNCE_MS = 1200;
 
-  function mountCreate() {
+  async function mountCreate() {
     C.requireAuthOrRedirect();
     C.seedIfEmpty();
     C.mountNav();
@@ -17,13 +17,48 @@
     const session = C.getSession();
     const users = C.readStore(C.STORAGE_KEYS.users, []);
     const me = users.find((u) => u.id === session.userId) || users[0];
+    const boot = window.MYVIBE_BOOTSTRAP || {};
 
     const routes = C.readStore(C.STORAGE_KEYS.routes, []);
     const savedLocations = C.readStore(C.STORAGE_KEYS.locations, []);
     const editRouteId = C.getQueryParam("r");
     const mode = C.getQueryParam("mode");
-    const editingRoute = routes.find((r) => r.id === editRouteId);
-    const isEdit = mode === "edit" && editingRoute && editingRoute.authorId === me.id;
+
+    let editingRoute = null;
+    let isEdit = false;
+    let serverEditId = null;
+
+    const editIdStr = editRouteId != null ? String(editRouteId).trim() : "";
+    if (mode === "edit" && editIdStr) {
+      if (/^\d+$/.test(editIdStr)) {
+        if (!boot.isAuthenticated || boot.userId == null) {
+          C.showToast("Please sign in to edit this route.", "error");
+          window.location.href = C.appUrl("login");
+          return;
+        }
+        try {
+          const data = await C.fetchJson(`api/routes/${encodeURIComponent(editIdStr)}`);
+          if (!data?.ok || !data.route) throw new Error("Not found");
+          const r = data.route;
+          if (Number(r.authorId) !== Number(boot.userId)) {
+            C.showToast("You can only edit your own routes.", "error");
+            window.location.href = C.routeDetailUrl(editIdStr);
+            return;
+          }
+          editingRoute = { ...r, id: String(r.id) };
+          isEdit = true;
+          serverEditId = Number(editIdStr);
+        } catch (err) {
+          const msg = err.body?.error || err.message || "Route not found.";
+          C.showToast(String(msg), "error");
+          window.location.href = C.appUrl("dashboard");
+          return;
+        }
+      } else {
+        editingRoute = routes.find((rr) => String(rr.id) === editIdStr) || null;
+        isEdit = Boolean(editingRoute && editingRoute.authorId === me.id);
+      }
+    }
 
     let locations = isEdit
       ? (editingRoute.locations || []).slice().sort((a, b) => a.order - b.order)
@@ -33,6 +68,63 @@
     let locPendingPhotoUrl = null;
     let draftTimer = null;
     let isSubmitting = false;
+
+    let editBaseline = "";
+    let editDirtyReady = false;
+    let editDirty = false;
+
+    function collectRouteStateForDirty() {
+      return JSON.stringify({
+        title: String($("#rtTitle").val() || "").trim(),
+        theme: String($("#rtTheme").val() || "").trim(),
+        tags: String($("#rtTags").val() || "").trim(),
+        description: String($("#rtDesc").val() || "").trim(),
+        isPublic: Boolean($("#rtPublic").is(":checked")),
+        locations: locations
+          .slice()
+          .sort((a, b) => a.order - b.order)
+          .map((l) => ({ ...l })),
+      });
+    }
+
+    function resetEditDirtyBaseline() {
+      if (!isEdit) return;
+      editBaseline = collectRouteStateForDirty();
+      editDirtyReady = true;
+    }
+
+    function bumpEditDirty() {
+      if (!isEdit || !editDirtyReady) return;
+      editDirty = collectRouteStateForDirty() !== editBaseline;
+    }
+
+    function detachEditGuards() {
+      $(window).off("beforeunload.mvEditRoute");
+      $(document).off("click.mvEditRouteGuard");
+    }
+
+    function attachEditGuards() {
+      if (!isEdit) return;
+      $(window).on("beforeunload.mvEditRoute", (ev) => {
+        if (!editDirty) return;
+        ev.preventDefault();
+        ev.returnValue = "";
+      });
+      $(document).on("click.mvEditRouteGuard", "a[href]", function (ev) {
+        if (!editDirty) return;
+        const href = this.getAttribute("href");
+        if (!href || href === "#" || href.startsWith("javascript:")) return;
+        try {
+          const u = new URL(href, window.location.origin);
+          if (u.origin !== window.location.origin) return;
+        } catch {
+          return;
+        }
+        if (!window.confirm("You have unsaved changes. Leave without saving?")) {
+          ev.preventDefault();
+        }
+      });
+    }
 
     function mapParkingLabel(v) {
       if (v === "yes") return "Yes";
@@ -151,7 +243,8 @@
       isSubmitting = on;
       const $btn = $("#btnSubmitRoute");
       $btn.prop("disabled", on);
-      $btn.text(on ? "Saving…" : "Save route");
+      const idle = isEdit ? "Save changes" : "Save route";
+      $btn.text(on ? "Saving…" : idle);
     }
 
     function renderPreview() {
@@ -213,6 +306,7 @@
         .join("");
       $("#locList").html(html || C.emptyCard("No locations yet. Add one from the button above."));
       renderPreview();
+      bumpEditDirty();
     }
 
     function openLocModal(modeName, idx) {
@@ -297,14 +391,28 @@
         theme,
         tags,
         isPublic,
-        locations: ordered.map((l, i) => ({
-          order: i + 1,
-          name: String(l.name || "").trim(),
-          time: String(l.time || "").trim(),
-          desc: String(l.desc || "").trim(),
-          parking: String(l.parking || "unknown").trim() || "unknown",
-          photoUrl: l.photoUrl || null,
-        })),
+        locations: ordered.map((l, i) => {
+          let lat = null;
+          let lng = null;
+          if (l.lat != null && l.lat !== "") {
+            const x = Number(l.lat);
+            if (Number.isFinite(x)) lat = x;
+          }
+          if (l.lng != null && l.lng !== "") {
+            const y = Number(l.lng);
+            if (Number.isFinite(y)) lng = y;
+          }
+          return {
+            order: i + 1,
+            name: String(l.name || "").trim(),
+            time: String(l.time || "").trim(),
+            desc: String(l.desc || "").trim(),
+            parking: String(l.parking || "unknown").trim() || "unknown",
+            photoUrl: l.photoUrl || null,
+            lat,
+            lng,
+          };
+        }),
       };
     }
 
@@ -366,13 +474,16 @@
 
       const photoUrl = locPendingPhotoUrl || (locModalMode === "edit" ? locations[editingLocIndex]?.photoUrl : null) || null;
 
+      const prev = locModalMode === "edit" ? locations[editingLocIndex] : null;
       const loc = {
-        order: locModalMode === "edit" ? locations[editingLocIndex].order : locations.length + 1,
+        order: locModalMode === "edit" && prev ? prev.order : locations.length + 1,
         name,
         time,
         desc: desc || "No description.",
         parking,
         photoUrl,
+        lat: prev && prev.lat != null && prev.lat !== "" ? prev.lat : null,
+        lng: prev && prev.lng != null && prev.lng !== "" ? prev.lng : null,
       };
 
       if (locModalMode === "edit" && editingLocIndex >= 0) locations[editingLocIndex] = loc;
@@ -450,10 +561,12 @@
     $("#rtTitle, #rtTheme, #rtTags, #rtDesc").on("input", () => {
       renderPreview();
       scheduleDraftSave();
+      bumpEditDirty();
     });
     $("#rtPublic").on("change", () => {
       renderPreview();
       scheduleDraftSave();
+      bumpEditDirty();
     });
 
     $("#btnSaveDraft").on("click", () => {
@@ -483,25 +596,53 @@
       e.preventDefault();
       if (isSubmitting) return;
 
-      const title = String($("#rtTitle").val() || "").trim();
-      const theme = String($("#rtTheme").val() || "").trim();
-      const desc = String($("#rtDesc").val() || "").trim();
-      const tagsRaw = String($("#rtTags").val() || "");
-      const isPublic = Boolean($("#rtPublic").is(":checked"));
+      if (isEdit && serverEditId != null) {
+        clearRouteFieldErrors();
+        if (!validateRouteClient()) {
+          C.showToast("Fix the highlighted fields.", "error");
+          return;
+        }
+        setSubmitting(true);
+        try {
+          const data = await C.fetchJson(`api/routes/${serverEditId}`, {
+            method: "PATCH",
+            body: buildCreatePayload(),
+          });
+          if (!data.ok || !data.route) throw new Error("Unexpected response.");
+          setSubmitting(false);
+          detachEditGuards();
+          editDirty = false;
+          C.showToast("Route updated.", "success");
+          window.setTimeout(() => {
+            window.location.href = C.routeDetailUrl(String(data.route.id));
+          }, 400);
+        } catch (err) {
+          setSubmitting(false);
+          const body = err.body || {};
+          if (err.status === 403) {
+            C.showToast("You can only edit your own routes.", "error");
+          } else if (body.errors && typeof body.errors === "object") {
+            applyServerErrors(body.errors);
+            C.showToast("Save failed — check the form.", "error");
+          } else {
+            showRouteAlert(err.message || "Could not update route.");
+            C.showToast("Save failed.", "error");
+          }
+        }
+        return;
+      }
 
-      if (isEdit) {
-        if (!title) {
-          $("#errRtTitle").removeClass("hidden").text("Please enter a title.");
+      if (isEdit && editingRoute) {
+        clearRouteFieldErrors();
+        if (!validateRouteClient()) {
+          C.showToast("Fix the highlighted fields.", "error");
           return;
         }
-        if (!theme) {
-          $("#errRtTheme").removeClass("hidden").text("Please select a theme.");
-          return;
-        }
-        if (locations.length === 0) {
-          $("#errRtLocations").removeClass("hidden").text("Please add at least one location.");
-          return;
-        }
+        const title = String($("#rtTitle").val() || "").trim();
+        const theme = String($("#rtTheme").val() || "").trim();
+        const desc = String($("#rtDesc").val() || "").trim();
+        const tagsRaw = String($("#rtTags").val() || "");
+        const isPublic = Boolean($("#rtPublic").is(":checked"));
         const tags = tagsRaw
           .split(",")
           .map((t) => t.trim().replaceAll("#", ""))
@@ -514,6 +655,8 @@
         editingRoute.isPublic = isPublic;
         editingRoute.locations = locations.slice();
         C.writeStore(C.STORAGE_KEYS.routes, routes);
+        detachEditGuards();
+        editDirty = false;
         C.showToast("Route updated (mock).", "success");
         window.setTimeout(() => {
           window.location.href = C.routeDetailUrl(editingRoute.id);
@@ -552,9 +695,14 @@
     renderSavedLocationSelect();
     renderLocs();
     renderPreview();
+
+    if (isEdit) {
+      attachEditGuards();
+      window.setTimeout(() => resetEditDirtyBaseline(), 0);
+    }
   }
 
   $(document).ready(() => {
-    if ($("body").attr("data-page") === "create") mountCreate();
+    if ($("body").attr("data-page") === "create") void mountCreate();
   });
 })();
