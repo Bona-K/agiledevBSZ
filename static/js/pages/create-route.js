@@ -68,8 +68,39 @@
     let locPendingPhotoUrl = null;
     /** True after user explicitly removes photo so save does not fall back to previous URL. */
     let locPhotoRemoved = false;
+    let routeCoverPendingUrl = null;
+    let routeCoverRemoved = false;
     let draftTimer = null;
     let isSubmitting = false;
+
+    const RT_COVER_STATUS_DEFAULT =
+      "Optional. Remove to use the default cover (same as Explore when no custom image).";
+
+    function currentRouteCoverPhotoUrl() {
+      if (routeCoverRemoved) return null;
+      if (routeCoverPendingUrl) return routeCoverPendingUrl;
+      if (isEdit && editingRoute && editingRoute.photoUrl) return editingRoute.photoUrl;
+      return null;
+    }
+
+    function routeCoverSigForDirty() {
+      return `${routeCoverRemoved}|${currentRouteCoverPhotoUrl() || ""}`;
+    }
+
+    function syncRouteCoverPreview() {
+      $("#errRtCover").addClass("hidden").text("");
+      const url = currentRouteCoverPhotoUrl();
+      if (url) {
+        $("#rtCoverPreview").attr("src", url);
+        $("#rtCoverPreviewWrap").removeClass("hidden");
+        $("#rtCoverStatus").text("Cover set. Remove to use the default.");
+      } else {
+        $("#rtCoverPreview").attr("src", "");
+        $("#rtCoverPreviewWrap").addClass("hidden");
+        $("#rtCoverStatus").text(RT_COVER_STATUS_DEFAULT);
+      }
+      bumpEditDirty();
+    }
 
     let editBaseline = "";
     let editDirtyReady = false;
@@ -86,6 +117,7 @@
           .slice()
           .sort((a, b) => a.order - b.order)
           .map((l) => ({ ...l })),
+        routeCoverSig: routeCoverSigForDirty(),
       });
     }
 
@@ -140,7 +172,7 @@
 
     function clearRouteFieldErrors() {
       $("#routeFormAlert").addClass("hidden").text("");
-      $("#errRtTitle,#errRtTheme,#errRtTags,#errRtLocations,#errLocList").addClass("hidden").text("");
+      $("#errRtTitle,#errRtTheme,#errRtTags,#errRtCover,#errRtLocations,#errLocList").addClass("hidden").text("");
       $("#rtTitle,#rtTheme,#rtTags,#rtDesc").removeClass("border-rose-300 ring-rose-200");
     }
 
@@ -162,6 +194,7 @@
         if (key === "title") $("#errRtTitle").removeClass("hidden").text(text);
         else if (key === "theme") $("#errRtTheme").removeClass("hidden").text(text);
         else if (key === "tags") $("#errRtTags").removeClass("hidden").text(text);
+        else if (key === "photoUrl") $("#errRtCover").removeClass("hidden").text(text);
         else if (key === "locations") $("#errRtLocations").removeClass("hidden").text(text);
         else if (key.startsWith("locations.")) locMsgs.push(text);
         else if (key === "author" || key === "") showRouteAlert(text);
@@ -179,6 +212,8 @@
         description: String($("#rtDesc").val() || "").trim(),
         isPublic: Boolean($("#rtPublic").is(":checked")),
         locations: locations.map((l) => ({ ...l })),
+        routeCoverPendingUrl,
+        routeCoverRemoved,
         savedAt: C.nowIso(),
       };
     }
@@ -238,6 +273,12 @@
         }));
         renumber();
       }
+      if (typeof d.routeCoverRemoved === "boolean") routeCoverRemoved = d.routeCoverRemoved;
+      else routeCoverRemoved = false;
+      routeCoverPendingUrl =
+        d.routeCoverPendingUrl != null && d.routeCoverPendingUrl !== "" ? String(d.routeCoverPendingUrl) : null;
+      $("#rtCover").val("");
+      syncRouteCoverPreview();
       C.showToast("Draft restored.", "success");
     }
 
@@ -260,10 +301,15 @@
         .slice(0, 5)
         .join(" ");
       const visibility = $("#rtPublic").is(":checked") ? "Public" : "Private";
+      const coverUrl = currentRouteCoverPhotoUrl();
+      const coverThumb = coverUrl
+        ? `<div class="mt-3"><img src="${C.escapeHtml(coverUrl)}" alt="" class="max-h-28 w-full max-w-sm rounded-xl border border-slate-200 object-cover" loading="lazy" /></div>`
+        : "";
       $("#routePreview").html(
         `<div class="text-xs font-semibold text-slate-600">${C.escapeHtml(theme)} · ${visibility}</div>
          <div class="mt-1 text-sm font-semibold text-slate-900">${C.escapeHtml(title)}</div>
          <div class="mt-2 text-sm text-slate-700">${C.escapeHtml(desc)}</div>
+         ${coverThumb}
          <div class="mt-2 text-xs text-slate-600">${C.escapeHtml(tags || "No tags")} · ${locations.length} locations</div>`
       );
     }
@@ -394,6 +440,7 @@
         theme,
         tags,
         isPublic,
+        photoUrl: currentRouteCoverPhotoUrl(),
         locations: ordered.map((l, i) => {
           let lat = null;
           let lng = null;
@@ -433,6 +480,12 @@
       $("h1").first().text("Edit route");
     }
 
+    routeCoverPendingUrl = null;
+    routeCoverRemoved = false;
+    $("#rtCover").val("");
+    syncRouteCoverPreview();
+    renderPreview();
+
     $("#btnAddLoc").on("click", () => openLocModal("create"));
     $("#btnCloseLocModal, #btnCancelLoc").on("click", closeLocModal);
 
@@ -444,6 +497,37 @@
       $("#locPhotoPreviewWrap").addClass("hidden");
       $("#errLocPhoto").addClass("hidden").text("");
       $("#locPhotoStatus").text("Photo removed.");
+    });
+
+    $("#btnRemoveRtCover").on("click", () => {
+      routeCoverRemoved = true;
+      routeCoverPendingUrl = null;
+      $("#rtCover").val("");
+      syncRouteCoverPreview();
+      renderPreview();
+      scheduleDraftSave();
+    });
+
+    $("#rtCover").on("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      $("#errRtCover").addClass("hidden").text("");
+      if (!file) return;
+      $("#rtCoverStatus").text("Uploading…");
+      try {
+        const url = await uploadPlacePhoto(file);
+        routeCoverPendingUrl = url;
+        routeCoverRemoved = false;
+        $("#rtCoverStatus").text("Cover attached.");
+        syncRouteCoverPreview();
+        renderPreview();
+        scheduleDraftSave();
+      } catch (err) {
+        $("#errRtCover").removeClass("hidden").text(err.message || "Upload failed.");
+        $("#rtCoverStatus").text(RT_COVER_STATUS_DEFAULT);
+        routeCoverPendingUrl = null;
+        $("#rtCover").val("");
+        syncRouteCoverPreview();
+      }
     });
 
     $("#locPhoto").on("change", async (e) => {
@@ -600,6 +684,10 @@
       $("#rtDesc").val("");
       $("#rtTheme").prop("selectedIndex", 0);
       $("#rtPublic").prop("checked", true);
+      routeCoverPendingUrl = null;
+      routeCoverRemoved = false;
+      $("#rtCover").val("");
+      syncRouteCoverPreview();
       locations = [
         { order: 1, time: "10:00", name: "Place name", desc: "Short description", parking: "unknown", photoUrl: null },
       ];
@@ -669,6 +757,7 @@
         editingRoute.description = desc || "No description yet (mock).";
         editingRoute.tags = tags;
         editingRoute.isPublic = isPublic;
+        editingRoute.photoUrl = currentRouteCoverPhotoUrl();
         editingRoute.locations = locations.slice();
         C.writeStore(C.STORAGE_KEYS.routes, routes);
         detachEditGuards();

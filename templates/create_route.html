@@ -74,6 +74,29 @@
           ></textarea>
         </div>
 
+        <div>
+          <label class="text-sm font-medium text-slate-700" for="rtCover">Cover image (optional)</label>
+          <input
+            id="rtCover"
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            class="mt-2 block w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white"
+          />
+          <p id="rtCoverStatus" class="mt-1 text-xs text-slate-500"></p>
+          <p id="errRtCover" class="mt-1 hidden text-xs font-semibold text-rose-600"></p>
+          <div id="rtCoverPreviewWrap" class="mt-2 hidden space-y-2">
+            <img id="rtCoverPreview" src="" alt="Route cover preview" class="max-h-40 w-full max-w-md rounded-xl border border-slate-200 object-cover" />
+            <button
+              id="btnRemoveRtCover"
+              type="button"
+              class="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-800 shadow-sm hover:bg-rose-50"
+            >
+              Remove photo
+            </button>
+          </div>
+          <p class="mt-1 text-xs text-slate-500">If you skip this, the default cover is used (same idea as Explore cards).</p>
+        </div>
+
         <div id="routePreview" class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
           Preview will update as you type.
         </div>
