@@ -133,6 +133,13 @@ class Route(db.Model):
         lazy="dynamic",
         cascade="all, delete-orphan",
     )
+    comments = db.relationship(
+        "RouteComment",
+        back_populates="route",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+        order_by="RouteComment.created_at",
+    )
     # Ordered stops; cascade delete keeps DB aligned when a route is removed later.
     locations = db.relationship(
         "RouteLocation",
@@ -236,3 +243,24 @@ class RouteRating(db.Model):
 
     def __repr__(self):
         return f"<RouteRating user={self.user_id} route={self.route_id} score={self.score}>"
+
+
+# ---------------------------------------------------------------------------
+# RouteComment (many per route; author is commenter User)
+# ---------------------------------------------------------------------------
+
+
+class RouteComment(db.Model):
+    __tablename__ = "route_comments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    route_id = db.Column(db.Integer, db.ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    route = db.relationship("Route", back_populates="comments")
+    author_user = db.relationship("User", foreign_keys=[user_id])
+
+    def __repr__(self):
+        return f"<RouteComment {self.id} route={self.route_id} user={self.user_id}>"

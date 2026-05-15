@@ -31,6 +31,15 @@
     writeCommentsStore(store);
   }
 
+  function normalizeCommentRow(c) {
+    if (!c || typeof c !== "object") return null;
+    const text = String(c.text ?? "").trim();
+    if (!text) return null;
+    const author = String(c.author ?? "Unknown").trim() || "Unknown";
+    const createdAt = c.createdAt || C.nowIso();
+    return { author, text, createdAt };
+  }
+
   function timeAgoLabel(iso) {
     const ts = new Date(iso).getTime();
     if (!Number.isFinite(ts)) return "just now";
@@ -43,18 +52,17 @@
     return `${diffDay}d ago`;
   }
 
-  function renderComments(routeId) {
-    const list = routeComments(routeId);
-    if (!list.length) {
+  function renderCommentsList(list) {
+    const rows = (Array.isArray(list) ? list : []).map(normalizeCommentRow).filter(Boolean);
+    rows.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    if (!rows.length) {
       $("#commentList").html(
         `<div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">No comments yet. Be the first to comment.</div>`
       );
       return;
     }
     $("#commentList").html(
-      list
-        .slice()
-        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      rows
         .map(
           (c) => `
         <div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
@@ -65,6 +73,31 @@
         )
         .join("")
     );
+  }
+
+  async function refreshRouteComments(routeId, numericId, boot) {
+    if (numericId && boot.isAuthenticated) {
+      try {
+        const data = await C.fetchJson(`api/routes/${encodeURIComponent(routeId)}/comments`);
+        renderCommentsList(data.comments || []);
+      } catch (err) {
+        if (err.status === 404) {
+          renderCommentsList([]);
+          return;
+        }
+        renderCommentsList([]);
+        C.showToast(err.body?.error || err.message || "Could not load comments.", "error");
+      }
+      return;
+    }
+    const local = routeComments(routeId)
+      .map((c) => ({
+        author: c.author,
+        text: c.text,
+        createdAt: c.createdAt,
+      }))
+      .filter((c) => c.text);
+    renderCommentsList(local);
   }
 
   function formatRatingLabel(value) {
@@ -214,7 +247,7 @@
       .join("");
     $("#routeLocations").html(locHtml);
     renderSimilarRoutes(route, routes);
-    renderComments(route.id);
+    await refreshRouteComments(route.id, numericId, boot);
 
     const savedSet = new Set((saved || []).map(String));
     C.updateRouteButtons(route, savedSet);
@@ -294,10 +327,26 @@
       }
     });
 
-    $("#btnCmt").on("click", () => {
+    $("#btnCmt").on("click", async () => {
       const text = String($("#cmt").val() || "").trim();
       if (!text) {
         C.showToast("Please enter a comment.", "error");
+        return;
+      }
+      if (numericId && boot.isAuthenticated) {
+        try {
+          await C.fetchJson(`api/routes/${encodeURIComponent(route.id)}/comments`, {
+            method: "POST",
+            body: { text },
+          });
+          $("#cmt").val("");
+          await refreshRouteComments(route.id, numericId, boot);
+          C.showToast("Comment added.", "success");
+        } catch (err) {
+          if (err.status === 401) C.showToast("Please sign in first.", "error");
+          else if (err.body?.errors?.text) C.showToast(err.body.errors.text, "error");
+          else C.showToast(err.body?.error || err.message || "Could not post comment.", "error");
+        }
         return;
       }
       const next = routeComments(route.id);
@@ -308,7 +357,7 @@
       });
       saveRouteComments(route.id, next);
       $("#cmt").val("");
-      renderComments(route.id);
+      await refreshRouteComments(route.id, numericId, boot);
       C.showToast("Comment added.", "success");
     });
 

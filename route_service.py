@@ -10,8 +10,9 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 
-from models import db, Route, RouteLike, RouteLocation, RouteRating, SavedRoute, User
+from models import db, Route, RouteComment, RouteLike, RouteLocation, RouteRating, SavedRoute, User
 
 
 class RouteValidationError(Exception):
@@ -460,6 +461,76 @@ def unsave_route_for_user(user_id: int, route_id: int) -> bool:
         db.session.rollback()
         raise
     return True
+
+
+# ---------------------------------------------------------------------------
+# Route comments (viewer must be allowed to see the route)
+# ---------------------------------------------------------------------------
+
+_COMMENT_MAX_LEN = 4000
+
+
+def _serialize_route_comment(row: RouteComment) -> dict[str, Any]:
+    u = row.author_user
+    if u is not None:
+        label = (u.display_name or "").strip() or u.username or "Unknown"
+        username = str(u.username or "")
+    else:
+        label = "Unknown"
+        username = ""
+    return {
+        "id": row.id,
+        "author": label,
+        "authorUsername": username,
+        "text": row.body,
+        "createdAt": _iso_utc_z(row.created_at),
+    }
+
+
+def list_route_comments(route_id: int, viewer_user_id: Optional[int]) -> list[dict[str, Any]]:
+    """Oldest first. Raises ValueError if route not visible to viewer."""
+    route = get_route_for_viewer(int(route_id), viewer_user_id)
+    if route is None:
+        raise ValueError("Route not found.")
+    rows = (
+        RouteComment.query.options(joinedload(RouteComment.author_user))
+        .filter_by(route_id=route.id)
+        .order_by(RouteComment.created_at.asc())
+        .all()
+    )
+    return [_serialize_route_comment(r) for r in rows]
+
+
+def add_route_comment(user_id: int, route_id: int, text: str) -> dict[str, Any]:
+    """Persist one comment. Raises ValueError if route not visible; RouteValidationError on bad text."""
+    uid = _require_author_id(user_id)
+    route = get_route_for_viewer(int(route_id), uid)
+    if route is None:
+        raise ValueError("Route not found.")
+
+    body = (text or "").strip()
+    if not body:
+        raise RouteValidationError({"text": "Comment cannot be empty."})
+    if len(body) > _COMMENT_MAX_LEN:
+        raise RouteValidationError(
+            {"text": f"Comment is too long (max {_COMMENT_MAX_LEN} characters)."}
+        )
+
+    row = RouteComment(route_id=route.id, user_id=uid, body=body)
+    db.session.add(row)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    row = (
+        RouteComment.query.options(joinedload(RouteComment.author_user))
+        .filter_by(id=row.id)
+        .first()
+    )
+    if row is None:
+        raise RuntimeError("Comment row missing after insert.")
+    return _serialize_route_comment(row)
 
 
 def count_likes_for_route(route_id: int) -> int:

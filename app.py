@@ -10,11 +10,13 @@ from models import db, User, Follow, Notification
 from route_service import (
     RouteOwnershipError,
     RouteValidationError,
+    add_route_comment,
     create_route_from_payload,
     delete_route_for_owner,
     duplicate_route_for_user,
     get_route_for_viewer,
     list_public_routes,
+    list_route_comments,
     list_routes_for_author,
     list_public_routes_for_author,
     list_saved_routes_for_user,
@@ -699,6 +701,44 @@ def api_set_route_rating(route_id):
         rating=avg_rating,
         userRating=user_rating,
     )
+
+
+@app.route("/api/routes/<int:route_id>/comments", methods=["GET"])
+@login_required
+def api_list_route_comments(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    try:
+        comments = list_route_comments(route_id, user.id)
+    except ValueError:
+        return jsonify(ok=False, error="Not found."), 404
+    return jsonify(ok=True, comments=comments)
+
+
+@app.route("/api/routes/<int:route_id>/comments", methods=["POST"])
+@login_required
+def api_add_route_comment(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    if not request.is_json:
+        return jsonify(ok=False, errors={"": "Send JSON (Content-Type: application/json)."}), 400
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify(ok=False, errors={"": "Invalid JSON body."}), 400
+    raw_text = body.get("text")
+    if raw_text is not None and not isinstance(raw_text, str):
+        return jsonify(ok=False, errors={"text": "Comment must be a string."}), 400
+    try:
+        comment = add_route_comment(user.id, route_id, raw_text or "")
+    except RouteValidationError as exc:
+        return jsonify(ok=False, errors=exc.errors), 400
+    except ValueError:
+        return jsonify(ok=False, error="Not found."), 404
+    except Exception:
+        return jsonify(ok=False, error="Could not save comment. Try again."), 500
+    return jsonify(ok=True, comment=comment), 201
 
 
 @app.route("/api/uploads/place-photo", methods=["POST"])
