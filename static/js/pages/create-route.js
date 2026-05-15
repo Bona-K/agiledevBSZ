@@ -314,12 +314,6 @@
       const title = String($("#rtTitle").val() || "").trim() || "(untitled)";
       const theme = String($("#rtTheme").val() || "").trim() || "(no theme)";
       const desc = String($("#rtDesc").val() || "").trim() || "No description yet.";
-      const tags = String($("#rtTags").val() || "")
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean)
-        .slice(0, 5)
-        .join(" ");
       const visibility = $("#rtPublic").is(":checked") ? "Public" : "Private";
       const coverUrl = currentRouteCoverPhotoUrl();
       const coverThumb = coverUrl
@@ -330,7 +324,7 @@
          <div class="mt-1 text-sm font-semibold text-slate-900">${C.escapeHtml(title)}</div>
          <div class="mt-2 text-sm text-slate-700">${C.escapeHtml(desc)}</div>
          ${coverThumb}
-         <div class="mt-2 text-xs text-slate-600">${C.escapeHtml(tags || "No tags")} · ${locations.length} locations</div>`
+         <div class="mt-2 text-xs text-slate-600">${locations.length} locations</div>`
       );
     }
 
