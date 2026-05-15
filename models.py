@@ -36,6 +36,12 @@ class User(db.Model):
 
     # Routes owned by this user (author_id on Route).
     routes = db.relationship("Route", back_populates="author", lazy="dynamic")
+    saved_routes = db.relationship(
+        "SavedRoute",
+        back_populates="user",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self):
         return f"<User {self.username}>"
@@ -109,6 +115,12 @@ class Route(db.Model):
     )
 
     author = db.relationship("User", back_populates="routes")
+    saved_by = db.relationship(
+        "SavedRoute",
+        back_populates="route",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
     # Ordered stops; cascade delete keeps DB aligned when a route is removed later.
     locations = db.relationship(
         "RouteLocation",
@@ -145,3 +157,26 @@ class RouteLocation(db.Model):
 
     def __repr__(self):
         return f"<RouteLocation {self.id} route={self.route_id} #{self.stop_order}>"
+
+
+# ---------------------------------------------------------------------------
+# SavedRoute (user bookmarks a route)
+# ---------------------------------------------------------------------------
+
+class SavedRoute(db.Model):
+    __tablename__ = "saved_routes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    route_id = db.Column(db.Integer, db.ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User", back_populates="saved_routes")
+    route = db.relationship("Route", back_populates="saved_by")
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "route_id", name="unique_saved_route"),
+    )
+
+    def __repr__(self):
+        return f"<SavedRoute user={self.user_id} route={self.route_id}>"

@@ -17,7 +17,9 @@
     async function loadMyRoutes() {
       try {
         const data = await C.fetchJson("api/my-routes");
-        return Array.isArray(data?.routes) ? data.routes : [];
+        return Array.isArray(data?.routes)
+          ? data.routes.map(C.normalizeServerRoute).filter(Boolean)
+          : [];
       } catch (err) {
         C.showToast("Could not load your routes.", "error");
         return [];
@@ -26,16 +28,17 @@
 
     async function renderPanels() {
       const myRoutes = await loadMyRoutes();
-      const allSaved = C.readStore(C.STORAGE_KEYS.saved, []);
+      const { routes: savedRoutes, savedIds } = await C.fetchSavedRoutes();
+
       $("#myRoutesGrid").html(
-        myRoutes.map((r) => C.routeManageCardHtml(r, users, allSaved)).join("") ||
+        myRoutes.map((r) => C.routeManageCardHtml(r, users, savedIds)).join("") ||
           C.emptyCard("You have not created any routes yet.")
       );
 
-      const savedSet = new Set(allSaved || []);
-      const allRoutes = C.readStore(C.STORAGE_KEYS.routes, []);
-      const savedRoutes = allRoutes.filter((r) => savedSet.has(r.id));
-      $("#savedRoutesGrid").html(savedRoutes.map((r) => C.routeCardHtml(r, users, allSaved)).join("") || C.emptyCard("No saved routes yet."));
+      $("#savedRoutesGrid").html(
+        savedRoutes.map((r) => C.routeCardHtml(r, users, savedIds)).join("") ||
+          C.emptyCard("No saved routes yet.")
+      );
 
       const locationHtml = (savedLocations || [])
         .map((loc) => {
@@ -74,8 +77,6 @@
           else C.showToast(err.body?.error || err.message || "Could not delete route.", "error");
           return;
         }
-        const nextSaved = C.readStore(C.STORAGE_KEYS.saved, []).filter((id) => String(id) !== routeId);
-        C.writeStore(C.STORAGE_KEYS.saved, nextSaved);
         await renderPanels();
         C.showToast("Route deleted.", "success");
         return;

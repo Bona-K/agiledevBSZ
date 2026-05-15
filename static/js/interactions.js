@@ -198,7 +198,14 @@
       ]);
     }
 
-    if (!saved) writeStore(STORAGE_KEYS.saved, ["r_1"]);
+    syncSessionWithServer();
+    const bootstrapAfterSync = serverBootstrap();
+    if (saved === null) {
+      writeStore(
+        STORAGE_KEYS.saved,
+        bootstrapAfterSync.isAuthenticated ? [] : ["r_1"]
+      );
+    }
 
     if (!locations) {
       writeStore(STORAGE_KEYS.locations, [
@@ -209,6 +216,52 @@
     }
 
     syncSessionWithServer();
+  }
+
+  function normalizeServerRoute(r) {
+    if (!r || typeof r !== "object") return null;
+    return { ...r, id: String(r.id), authorId: r.authorId };
+  }
+
+  async function fetchSavedRouteIds() {
+    const bootstrap = serverBootstrap();
+    if (!bootstrap.isAuthenticated) {
+      return readStore(STORAGE_KEYS.saved, []);
+    }
+    try {
+      const data = await fetchJson("api/saved-route-ids");
+      const ids = Array.isArray(data?.savedIds) ? data.savedIds.map((id) => String(id)) : [];
+      writeStore(STORAGE_KEYS.saved, ids);
+      return ids;
+    } catch {
+      return readStore(STORAGE_KEYS.saved, []);
+    }
+  }
+
+  async function fetchSavedRoutes() {
+    const bootstrap = serverBootstrap();
+    if (!bootstrap.isAuthenticated) {
+      const allSaved = readStore(STORAGE_KEYS.saved, []);
+      const allRoutes = readStore(STORAGE_KEYS.routes, []);
+      const savedSet = new Set((allSaved || []).map(String));
+      return {
+        routes: allRoutes.filter((r) => savedSet.has(String(r.id))),
+        savedIds: allSaved,
+      };
+    }
+    try {
+      const data = await fetchJson("api/saved-routes");
+      const routes = (Array.isArray(data?.routes) ? data.routes : [])
+        .map(normalizeServerRoute)
+        .filter(Boolean);
+      const savedIds = Array.isArray(data?.savedIds)
+        ? data.savedIds.map((id) => String(id))
+        : routes.map((r) => r.id);
+      writeStore(STORAGE_KEYS.saved, savedIds);
+      return { routes, savedIds };
+    } catch {
+      return { routes: [], savedIds: [] };
+    }
   }
 
   function getSession() {
@@ -411,8 +464,8 @@
       "Unknown";
     const initialsSource = author && author.name ? author.name : authorLabel;
     const avatarTone = userAvatarTone(author || { username: authorLabel });
-    const savedSet = new Set(savedIds || []);
-    const saved = savedSet.has(route.id);
+    const savedSet = new Set((savedIds || []).map(String));
+    const saved = savedSet.has(String(route.id));
     const likedIds = new Set(readStore("mv_liked_route_ids", []));
     const isLiked = likedIds.has(route.id);
     const themeKey = normalizeTheme(route.theme);
@@ -470,8 +523,8 @@
     const authorName = author
       ? author.name
       : String(route.authorUsername || "").trim() || "Unknown";
-    const savedSet = new Set(savedIds || []);
-    const saved = savedSet.has(route.id);
+    const savedSet = new Set((savedIds || []).map(String));
+    const saved = savedSet.has(String(route.id));
     const tags = (route.tags || []).slice(0, 3);
     const tagHtml = tags
       .map((t) => `<span class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">#${escapeHtml(t)}</span>`)
@@ -508,7 +561,7 @@
   }
 
   function updateRouteButtons(route, savedSet) {
-    const isSaved = savedSet.has(route.id);
+    const isSaved = savedSet.has(String(route.id));
     $("#btnSave").text(isSaved ? "🔖 Saved" : "🔖 Save");
   }
 
@@ -532,6 +585,9 @@
     topTheme,
     appUrl,
     fetchJson,
+    normalizeServerRoute,
+    fetchSavedRouteIds,
+    fetchSavedRoutes,
     routeDetailUrl,
     createRouteUrl,
     routeCardHtml,

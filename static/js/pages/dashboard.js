@@ -6,18 +6,13 @@
   const C = window.AppCore;
   if (!C) return;
 
-  function normalizeServerRoute(r) {
-    if (!r || typeof r !== "object") return null;
-    return { ...r, id: String(r.id), authorId: r.authorId };
-  }
-
   async function mountDashboard() {
     C.requireAuthOrRedirect();
     C.seedIfEmpty();
     C.mountNav();
 
     const users = C.readStore(C.STORAGE_KEYS.users, []);
-    const saved = C.readStore(C.STORAGE_KEYS.saved, []);
+    let saved = C.readStore(C.STORAGE_KEYS.saved, []);
     const session = C.getSession();
     const boot = window.MYVIBE_BOOTSTRAP || {};
 
@@ -37,7 +32,8 @@
           C.fetchJson("api/my-routes"),
         ]);
         const rawPub = Array.isArray(pubData?.routes) ? pubData.routes : [];
-        const normalized = rawPub.map(normalizeServerRoute).filter(Boolean);
+        const normalized = rawPub.map(C.normalizeServerRoute).filter(Boolean);
+        saved = await C.fetchSavedRouteIds();
         routes = normalized;
         statTotal = normalized.length;
         statMyRoutes = Array.isArray(myData?.routes) ? myData.routes.length : 0;

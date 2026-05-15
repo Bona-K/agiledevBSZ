@@ -16,6 +16,10 @@ from route_service import (
     get_route_for_viewer,
     list_public_routes,
     list_routes_for_author,
+    list_saved_routes_for_user,
+    get_saved_route_ids_for_user,
+    save_route_for_user,
+    unsave_route_for_user,
     serialize_route_for_client,
     update_route_for_owner,
 )
@@ -580,6 +584,53 @@ def api_list_my_routes():
         return jsonify(ok=False, error="Not signed in."), 401
     routes = list_routes_for_author(user.id)
     return jsonify(ok=True, routes=[serialize_route_for_client(route) for route in routes])
+
+
+@app.route("/api/saved-route-ids", methods=["GET"])
+@login_required
+def api_saved_route_ids():
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    ids = get_saved_route_ids_for_user(user.id)
+    return jsonify(ok=True, savedIds=ids)
+
+
+@app.route("/api/saved-routes", methods=["GET"])
+@login_required
+def api_list_saved_routes():
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    routes = list_saved_routes_for_user(user.id)
+    saved_ids = get_saved_route_ids_for_user(user.id)
+    return jsonify(
+        ok=True,
+        savedIds=saved_ids,
+        routes=[serialize_route_for_client(route) for route in routes],
+    )
+
+
+@app.route("/api/routes/<int:route_id>/save", methods=["POST"])
+@login_required
+def api_save_route(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    if not save_route_for_user(user.id, route_id):
+        return jsonify(ok=False, error="Not found."), 404
+    return jsonify(ok=True, saved=True, savedIds=get_saved_route_ids_for_user(user.id))
+
+
+@app.route("/api/routes/<int:route_id>/save", methods=["DELETE"])
+@login_required
+def api_unsave_route(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    if not unsave_route_for_user(user.id, route_id):
+        return jsonify(ok=False, error="Not saved."), 404
+    return jsonify(ok=True, saved=False, savedIds=get_saved_route_ids_for_user(user.id))
 
 
 @app.route("/api/routes/public", methods=["GET"])
