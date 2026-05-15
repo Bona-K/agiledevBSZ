@@ -77,10 +77,7 @@
     <section>
       <div class="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 class="text-2xl font-semibold tracking-tight text-slate-900">My Page</h1>
-            <p class="mt-1 text-sm text-slate-600">Tabbed profile layout</p>
-          </div>
+          <h1 class="text-2xl font-semibold tracking-tight text-slate-900">My Page</h1>
           <a href="{{ url_for('create_route') }}"
              class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800">
             Create route
@@ -134,9 +131,6 @@
           <!-- Edit profile -->
           <div>
             <div class="text-sm font-semibold text-slate-900">Personal information</div>
-            <p class="mt-1 text-sm text-slate-600">
-              Update your display name and bio.
-            </p>
             <a href="{{ url_for('edit_profile') }}"
                class="mt-3 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50">
               Edit profile →
@@ -148,11 +142,7 @@
           <!-- Change Password -->
           <div>
             <div class="text-sm font-semibold text-slate-900">Password</div>
-            <p class="mt-1 text-sm text-slate-600">
-              Update your password to keep your account secure.
-            </p>
-            
-              <a href="{{ url_for('change_password') }}"
+            <a href="{{ url_for('change_password') }}"
                  class="mt-3 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50">
                 Change password →
               </a>
@@ -163,9 +153,6 @@
           <!-- Logout -->
           <div>
             <div class="text-sm font-semibold text-slate-900">Session</div>
-            <p class="mt-1 text-sm text-slate-600">
-              Sign out from your current session.
-            </p>
             <button
               data-action="logout"
               type="button"

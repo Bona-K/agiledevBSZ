@@ -400,8 +400,8 @@
 
       const duplicateDraft = {
         title: String(route.title || "").trim(),
-        theme: String(route.theme || "").trim(),
-        tags: (route.tags || []).join(", "),
+        theme: String(route.theme || "").trim().toLowerCase(),
+        tags: (route.tags || []).map((t) => String(t || "").trim().toLowerCase()).join(", "),
         description: String(route.description || "").trim(),
         isPublic: Boolean(route.isPublic),
         locations: orderedLocations,

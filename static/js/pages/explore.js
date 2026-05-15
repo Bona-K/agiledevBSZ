@@ -1,7 +1,7 @@
 /* global $, window */
 
 // Page: explore.html
-// Features: keyword search, sort, tag chips, vibe tiles, pagination/load-more.
+// Features: keyword search, sort, theme/tag chips, pagination/load-more.
 (function explorePage() {
   const C = window.AppCore;
   if (!C) return;
@@ -28,6 +28,10 @@
 
     let activeTheme = "";
     let activeTag = "";
+    const $initialTagChip = $(".tag-filter-chip.is-selected").first();
+    if ($initialTagChip.length) {
+      activeTag = String($initialTagChip.attr("data-tag") || "").trim().toLowerCase();
+    }
     let visibleCount = 6;
     const pageSize = 6;
 
@@ -36,8 +40,16 @@
       const sort = String($("#sort").val() || "latest");
       let items = routes.filter((r) => r.isPublic !== false);
 
-      if (activeTheme) items = items.filter((r) => C.normalizeTheme(r.theme) === activeTheme);
-      if (activeTag) items = items.filter((r) => (r.tags || []).includes(activeTag));
+      if (activeTheme) {
+        items = items.filter(
+          (r) => String(r.theme || "").trim().toLowerCase() === activeTheme
+        );
+      }
+      if (activeTag) {
+        items = items.filter((r) =>
+          (r.tags || []).some((t) => String(t || "").trim().toLowerCase() === activeTag)
+        );
+      }
       if (q) {
         items = items.filter((r) => {
           return (
@@ -83,21 +95,33 @@
     $("#searchBtn").on("click", resetAndRender);
     $("#sort").on("change", resetAndRender);
 
-    $(".filter-chip").on("click", function onTagClick() {
-      activeTag = String($(this).attr("data-tag") || "");
-      $(".filter-chip").removeClass("is-selected");
+    function syncThemeChipUi() {
+      $(".theme-filter-chip").removeClass("is-selected");
+      if (!activeTheme) {
+        $(".theme-filter-chip").first().addClass("is-selected");
+        return;
+      }
+      $(".theme-filter-chip").each(function eachThemeChip() {
+        const v = String($(this).attr("data-theme") || "").trim().toLowerCase();
+        if (v === activeTheme) $(this).addClass("is-selected");
+      });
+    }
+
+    $(".tag-filter-chip").on("click", function onTagChipClick() {
+      activeTag = String($(this).attr("data-tag") || "").trim().toLowerCase();
+      $(".tag-filter-chip").removeClass("is-selected");
       $(this).addClass("is-selected");
       resetAndRender();
     });
 
-    $(".vibeTile").on("click", function onVibeClick() {
-      const next = String($(this).attr("data-theme") || "");
+    $(".theme-filter-chip").on("click", function onThemeChipClick() {
+      const next = String($(this).attr("data-theme") || "").trim().toLowerCase();
       activeTheme = activeTheme === next ? "" : next;
-      $(".vibeTile").removeClass("is-selected");
-      if (activeTheme) $(`.vibeTile[data-theme='${activeTheme}']`).addClass("is-selected");
+      syncThemeChipUi();
       resetAndRender();
     });
 
+    syncThemeChipUi();
     $("#exploreLoadMore").on("click", () => {
       visibleCount += pageSize;
       render();

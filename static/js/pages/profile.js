@@ -32,7 +32,7 @@
 
       $("#myRoutesGrid").html(
         myRoutes.map((r) => C.routeManageCardHtml(r, users, savedIds)).join("") ||
-          C.emptyCard("You have not created any routes yet.")
+          C.emptyCard("No routes yet.")
       );
 
       $("#savedRoutesGrid").html(

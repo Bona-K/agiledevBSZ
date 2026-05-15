@@ -6,7 +6,7 @@ from functools import wraps
 from sqlalchemy import text
 from werkzeug.utils import secure_filename
 
-from models import db, User, Follow, Notification
+from models import db, User, Follow, Notification, Route
 from route_service import (
     RouteOwnershipError,
     RouteValidationError,
@@ -132,6 +132,61 @@ with app.app_context():
 # ---------------------------------------------------------------------------
 
 THEMES = ["first date", "picnic", "active day", "hidden gems"]
+
+
+def theme_suggestions_for_create_form():
+    """
+    Preset themes plus distinct themes already stored on routes.
+
+    The theme field uses an HTML datalist; suggestions are fixed at page render time.
+    Custom themes only appear after at least one route has been saved with that theme.
+    """
+    presets = list(THEMES)
+    seen = {t.strip().lower() for t in presets}
+    extras: list[str] = []
+    try:
+        q = (
+            db.session.query(Route.theme)
+            .filter(Route.theme.isnot(None))
+            .filter(Route.theme != "")
+            .distinct()
+        )
+        for (raw,) in q:
+            s = (raw or "").strip()
+            if not s:
+                continue
+            key = s.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            extras.append(s)
+        extras.sort(key=lambda x: x.lower())
+    except Exception:
+        extras = []
+    return presets + extras
+
+
+def distinct_tags_from_public_routes(limit: int = 48) -> list[str]:
+    """Distinct tag strings from public routes (lowercase, trimmed), sorted."""
+    seen: set[str] = set()
+    ordered: list[str] = []
+    try:
+        rows = Route.query.with_entities(Route.tags).filter(Route.is_public.is_(True)).all()
+        for (tags_json,) in rows:
+            if not tags_json:
+                continue
+            if not isinstance(tags_json, list):
+                continue
+            for raw in tags_json:
+                t = str(raw).strip().replace("#", "").strip().lower()
+                if not t or t in seen:
+                    continue
+                seen.add(t)
+                ordered.append(t)
+        ordered.sort(key=lambda x: x.lower())
+        return ordered[:limit]
+    except Exception:
+        return []
 
 # ---------------------------------------------------------------------------
 # Auth helpers
@@ -284,15 +339,17 @@ def dashboard():
 @app.route("/explore")
 @login_required
 def explore():
-    query      = request.args.get("q", "")
-    sort       = request.args.get("sort", "latest")
-    active_tag = request.args.get("tag", "")
+    query = request.args.get("q", "")
+    sort = request.args.get("sort", "latest")
+    active_tag = request.args.get("tag", "").strip().lower()
     return render_template(
         "explore.html",
         active_page="explore",
         query=query,
         sort=sort,
         active_tag=active_tag,
+        themes=theme_suggestions_for_create_form(),
+        tags=distinct_tags_from_public_routes(),
     )
 
 
@@ -303,7 +360,7 @@ def create_route():
     return render_template(
         "create_route.html",
         active_page="create",
-        themes=THEMES,
+        themes=theme_suggestions_for_create_form(),
     )
 
 

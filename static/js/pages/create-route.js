@@ -73,8 +73,7 @@
     let draftTimer = null;
     let isSubmitting = false;
 
-    const RT_COVER_STATUS_DEFAULT =
-      "Optional. Remove to use the default cover (same as Explore when no custom image).";
+    const RT_COVER_STATUS_DEFAULT = "";
 
     function currentRouteCoverPhotoUrl() {
       if (routeCoverRemoved) return null;
@@ -93,7 +92,7 @@
       if (url) {
         $("#rtCoverPreview").attr("src", url);
         $("#rtCoverPreviewWrap").removeClass("hidden");
-        $("#rtCoverStatus").text("Cover set. Remove to use the default.");
+        $("#rtCoverStatus").text("");
       } else {
         $("#rtCoverPreview").attr("src", "");
         $("#rtCoverPreviewWrap").addClass("hidden");
@@ -186,6 +185,23 @@
     function renumber() {
       // Assign order from current array positions only — do not sort here or ↑↓ swaps are undone.
       locations = locations.map((l, i) => ({ ...l, order: i + 1 }));
+    }
+
+    function normalizeThemeForSave(raw) {
+      return String(raw || "").trim().toLowerCase();
+    }
+
+    function parseTagsForSave(tagsRaw) {
+      const seen = new Set();
+      const out = [];
+      for (const part of String(tagsRaw || "").split(",")) {
+        const t = part.trim().replaceAll("#", "").trim().toLowerCase();
+        if (!t || seen.has(t)) continue;
+        seen.add(t);
+        out.push(t);
+        if (out.length >= 8) break;
+      }
+      return out;
     }
 
     function clearRouteFieldErrors() {
@@ -368,7 +384,7 @@
           `;
         })
         .join("");
-      $("#locList").html(html || C.emptyCard("No locations yet. Add one from the button above."));
+      $("#locList").html(html || C.emptyCard("No locations yet."));
       renderPreview();
       bumpEditDirty();
     }
@@ -394,7 +410,7 @@
         locPendingPhotoUrl = source.photoUrl;
         $("#locPhotoPreview").attr("src", source.photoUrl);
         $("#locPhotoPreviewWrap").removeClass("hidden");
-        $("#locPhotoStatus").text("Existing photo kept unless you pick a new file.");
+        $("#locPhotoStatus").text("");
       }
       $("#locationModal").removeClass("hidden").addClass("flex");
     }
@@ -421,7 +437,7 @@
       clearRouteFieldErrors();
       let ok = true;
       const title = String($("#rtTitle").val() || "").trim();
-      const theme = String($("#rtTheme").val() || "").trim();
+      const theme = normalizeThemeForSave($("#rtTheme").val());
       if (!title) {
         $("#errRtTitle").removeClass("hidden").text("Title is required.");
         $("#rtTitle").addClass("border-rose-300 ring-2 ring-rose-200");
@@ -461,15 +477,10 @@
 
     function buildCreatePayload() {
       const title = String($("#rtTitle").val() || "").trim();
-      const theme = String($("#rtTheme").val() || "").trim();
+      const theme = normalizeThemeForSave($("#rtTheme").val());
       const desc = String($("#rtDesc").val() || "").trim();
-      const tagsRaw = String($("#rtTags").val() || "");
       const isPublic = Boolean($("#rtPublic").is(":checked"));
-      const tags = tagsRaw
-        .split(",")
-        .map((t) => t.trim().replaceAll("#", ""))
-        .filter(Boolean)
-        .slice(0, 8);
+      const tags = parseTagsForSave($("#rtTags").val());
       const ordered = locations.slice().sort((a, b) => a.order - b.order);
       return {
         title,
@@ -538,7 +549,7 @@
       $("#locPhotoPreview").attr("src", "");
       $("#locPhotoPreviewWrap").addClass("hidden");
       $("#errLocPhoto").addClass("hidden").text("");
-      $("#locPhotoStatus").text("Photo removed.");
+      $("#locPhotoStatus").text("");
     });
 
     $("#btnRemoveRtCover").on("click", () => {
@@ -559,7 +570,7 @@
         const url = await uploadPlacePhoto(file);
         routeCoverPendingUrl = url;
         routeCoverRemoved = false;
-        $("#rtCoverStatus").text("Cover attached.");
+        $("#rtCoverStatus").text("");
         syncRouteCoverPreview();
         renderPreview();
         scheduleDraftSave();
@@ -583,7 +594,7 @@
         locPhotoRemoved = false;
         $("#locPhotoPreview").attr("src", url);
         $("#locPhotoPreviewWrap").removeClass("hidden");
-        $("#locPhotoStatus").text("Photo attached.");
+        $("#locPhotoStatus").text("");
       } catch (err) {
         $("#errLocPhoto").removeClass("hidden").text(err.message || "Upload failed.");
         $("#locPhotoStatus").text("");
@@ -750,7 +761,7 @@
       $("#rtTitle").val("");
       $("#rtTags").val("");
       $("#rtDesc").val("");
-      $("#rtTheme").val(String($("#rtTheme").attr("data-default-theme") || "").trim() || "first date");
+      $("#rtTheme").val("");
       $("#rtPublic").prop("checked", true);
       routeCoverPendingUrl = null;
       routeCoverRemoved = false;
@@ -809,15 +820,10 @@
           return;
         }
         const title = String($("#rtTitle").val() || "").trim();
-        const theme = String($("#rtTheme").val() || "").trim();
+        const theme = normalizeThemeForSave($("#rtTheme").val());
         const desc = String($("#rtDesc").val() || "").trim();
-        const tagsRaw = String($("#rtTags").val() || "");
         const isPublic = Boolean($("#rtPublic").is(":checked"));
-        const tags = tagsRaw
-          .split(",")
-          .map((t) => t.trim().replaceAll("#", ""))
-          .filter(Boolean)
-          .slice(0, 8);
+        const tags = parseTagsForSave($("#rtTags").val());
         editingRoute.title = title;
         editingRoute.theme = theme;
         editingRoute.description = desc || "No description yet (mock).";

@@ -227,7 +227,8 @@
 
   function normalizeServerRoute(r) {
     if (!r || typeof r !== "object") return null;
-    return { ...r, id: String(r.id), authorId: r.authorId };
+    const cover = r.photoUrl ?? r.photo_url ?? null;
+    return { ...r, id: String(r.id), authorId: r.authorId, photoUrl: cover };
   }
 
   async function fetchSavedRouteIds() {
@@ -511,7 +512,7 @@
   }
 
   // Shared route card renderer for dashboard/explore/profile pages.
-  function routeCardHtml(route, users, savedIds, options = {}) {
+  function routeCardHtml(route, users, savedIds) {
     const uid = route.authorId;
     let author =
       (Array.isArray(users) ? users : []).find((u) => u.id === uid) ||
@@ -537,11 +538,8 @@
       isServerRouteId(route.id) && route.userLiked !== undefined
         ? Boolean(route.userLiked)
         : likedIds.has(String(route.id));
-    const themeKey = normalizeTheme(route.theme);
-    const visual = themeVisual(themeKey);
     const badge = routeBadge(route);
     const stops = Number(route.locations?.length || 0);
-    const showPhotoCover = Boolean(options.showPhotoCover);
     const tags = (route.tags || []).slice(0, 3);
     const tagHtml = tags
       .map((t) => `<span class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700">${escapeHtml(tagWithEmoji(t))}</span>`)
@@ -550,17 +548,10 @@
     return `
       <article class="route-card p-3">
         <a href="${routeDetailUrl(route.id)}" class="block">
-          ${
-            showPhotoCover
-              ? `<div class="route-thumb relative overflow-hidden border border-slate-200 bg-slate-100">
-                   <img src="${escapeHtml(routePhoto(route))}" alt="${escapeHtml(route.title)} cover photo" class="min-h-[120px] h-full w-full object-cover" loading="lazy" data-fallback-cover="${escapeHtml(ROUTE_CARD_DEFAULT_COVER)}" onerror="this.onerror=null;this.src=this.dataset.fallbackCover" />
-                   <div class="absolute left-3 top-3 rounded-full px-2 py-1 text-[11px] font-medium" style="background:${badge.bg};color:${badge.color};">${badge.text}</div>
-                 </div>`
-              : `<div class="route-thumb relative flex items-center justify-center" style="background:${visual.thumbBg};border-color:${visual.thumbBorder};color:${visual.thumbText};">
-                   <div class="text-5xl leading-none">${visual.emoji}</div>
-                   <div class="absolute left-3 top-3 rounded-full px-2 py-1 text-[11px] font-medium" style="background:${badge.bg};color:${badge.color};">${badge.text}</div>
-                 </div>`
-          }
+          <div class="route-thumb relative overflow-hidden border border-slate-200 bg-slate-100">
+            <img src="${escapeHtml(routePhoto(route))}" alt="${escapeHtml(route.title)} cover photo" class="min-h-[120px] h-full w-full object-cover" loading="lazy" data-fallback-cover="${escapeHtml(ROUTE_CARD_DEFAULT_COVER)}" onerror="this.onerror=null;this.src=this.dataset.fallbackCover" />
+            <div class="absolute left-3 top-3 rounded-full px-2 py-1 text-[11px] font-medium" style="background:${badge.bg};color:${badge.color};">${badge.text}</div>
+          </div>
           <div class="mt-3">
             <div class="text-[13px] font-semibold text-slate-900">${escapeHtml(route.title)}</div>
             <div class="mt-1 text-xs text-slate-500">📍 ${stops} stops</div>

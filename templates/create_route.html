@@ -6,18 +6,19 @@
 {% block content %}
 <main class="mx-auto w-[94vw] max-w-[1600px] px-6 py-10">
   <section>
-    <div class="text-sm font-semibold text-slate-600">Create / Edit route</div>
-    <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Create route</h1>
-    <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-700">
-      Minimal form and location list. Simple and beginner-friendly.
-    </p>
+    <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Create route</h1>
   </section>
 
-  <section class="mt-6 grid gap-6 lg:grid-cols-[1fr,360px]">
-    <section class="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur">
+  <section
+    class="mt-6 grid gap-6 lg:grid-cols-[minmax(300px,min(38vw,440px))_minmax(0,1fr)] lg:items-stretch lg:gap-8"
+  >
+    <section
+      id="routeInfoPanel"
+      class="flex h-full min-h-0 flex-col rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur"
+    >
       <div class="text-sm font-semibold text-slate-900">Route info</div>
 
-      <form id="routeForm" class="mt-4 space-y-4" novalidate>
+      <form id="routeForm" class="mt-4 flex min-h-0 flex-1 flex-col gap-4" novalidate>
         <div id="routeFormAlert" class="hidden rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800" role="alert"></div>
 
         <div>
@@ -27,12 +28,10 @@
             name="title"
             required
             class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4"
-            placeholder="e.g. Perth first date in a day"
           />
           <p id="errRtTitle" class="mt-1 hidden text-xs font-semibold text-rose-600"></p>
         </div>
 
-        {% set default_theme = themes[0] if themes else 'first date' %}
         <div>
           <label class="text-sm font-medium text-slate-700" for="rtTheme">Theme</label>
           <input
@@ -42,11 +41,8 @@
             required
             list="rtThemeSuggestions"
             maxlength="80"
-            value="{{ default_theme }}"
-            data-default-theme="{{ default_theme }}"
             autocomplete="off"
             class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4"
-            placeholder="Type a theme or pick from suggestions…"
           />
           <datalist id="rtThemeSuggestions">
             {% for theme in themes %}
@@ -57,10 +53,14 @@
             <option value="active day"></option>
             <option value="hidden gems"></option>
             {% endfor %}
+          </datalist>
+          <p id="errRtTheme" class="mt-1 hidden text-xs font-semibold text-rose-600"></p>
         </div>
 
         <div>
-          <label class="text-sm font-medium text-slate-700" for="rtTags">Tags (comma separated)</label>
+          <label class="text-sm font-medium text-slate-700" for="rtTags">
+            Tags <span class="font-normal text-slate-500">(comma-separated)</span>
+          </label>
           <input
             id="rtTags"
             name="mv_route_tags"
@@ -68,8 +68,8 @@
             autocomplete="off"
             autocapitalize="off"
             spellcheck="false"
-            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4"
-            placeholder="#date,#cheap,#sunset"
+            placeholder="date, cafe, sunset"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 placeholder:text-slate-400 focus:ring-4"
           />
           <p id="errRtTags" class="mt-1 hidden text-xs font-semibold text-rose-600"></p>
         </div>
@@ -81,12 +81,14 @@
             name="description"
             rows="4"
             class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4"
-            placeholder="Short route description..."
           ></textarea>
         </div>
 
         <div>
-          <label class="text-sm font-medium text-slate-700" for="rtCover">Cover image (optional)</label>
+          <label class="text-sm font-medium text-slate-700" for="rtCover">
+            Cover image <span class="font-normal text-slate-500">(optional)</span>
+          </label>
+          <p class="mt-1 text-xs text-slate-500">If omitted, a default cover is used.</p>
           <input
             id="rtCover"
             type="file"
@@ -105,18 +107,18 @@
               Remove photo
             </button>
           </div>
-          <p class="mt-1 text-xs text-slate-500">If you skip this, the default cover is used (same idea as Explore cards).</p>
         </div>
 
-        <div id="routePreview" class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-          Preview will update as you type.
+        <div>
+          <div class="text-sm font-semibold text-slate-900">Preview</div>
+          <div
+            id="routePreview"
+            class="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 min-h-[4.5rem]"
+          ></div>
         </div>
 
         <div class="flex items-center justify-between rounded-2xl bg-slate-50 p-4">
-          <div>
-            <div class="text-sm font-semibold text-slate-900">Visibility</div>
-            <div class="mt-1 text-sm text-slate-600">Public routes show up in Explore</div>
-          </div>
+          <div class="text-sm font-semibold text-slate-900">Visibility</div>
           <label class="inline-flex cursor-pointer items-center gap-2">
             <input id="rtPublic" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-slate-900" checked />
             <span class="text-sm font-semibold text-slate-800">Public</span>
@@ -125,7 +127,7 @@
 
         <p id="errRtLocations" class="hidden text-xs font-semibold text-rose-600"></p>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <div class="mt-auto flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap">
           <button
             id="btnSubmitRoute"
             type="submit"
@@ -157,12 +159,9 @@
       </form>
     </section>
 
-    <aside class="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur">
+    <aside class="flex h-full min-h-0 flex-col rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur">
       <div class="flex items-center justify-between">
-        <div>
-          <div class="text-sm font-semibold text-slate-900">Locations</div>
-          <div class="mt-1 text-sm text-slate-600">Simple location list component</div>
-        </div>
+        <div class="text-sm font-semibold text-slate-900">Locations</div>
         <button
           id="btnAddLoc"
           type="button"
@@ -189,12 +188,14 @@
         </div>
       </div>
 
-      <ul id="locList" class="mt-4 grid gap-3"></ul>
-      <p id="errLocList" class="mt-2 hidden text-xs font-semibold text-rose-600"></p>
-
-      <div class="mt-6 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
-        Change the order of your stops with ↑ and ↓. Want a picture for a stop? Add it when you save that stop—it's optional.
+      <div class="mt-4 flex min-h-0 flex-1 flex-col gap-2">
+        <ul id="locList" class="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto"></ul>
+        <p id="errLocList" class="hidden shrink-0 text-xs font-semibold text-rose-600"></p>
       </div>
+
+      <p class="mt-4 shrink-0 text-xs leading-relaxed text-slate-500">
+        Reorder stops using the <span class="font-semibold text-slate-600">↑</span> / <span class="font-semibold text-slate-600">↓</span> buttons on each location card.
+      </p>
     </aside>
   </section>
 </main>
@@ -208,7 +209,6 @@
     <div class="flex items-start justify-between gap-4">
       <div>
         <h2 class="text-lg font-semibold text-slate-900">Add location</h2>
-        <p class="mt-1 text-sm text-slate-600">Fill details and save to route</p>
       </div>
       <button id="btnCloseLocModal" type="button" class="rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
         Close
@@ -224,7 +224,7 @@
       <div class="grid gap-3 sm:grid-cols-2">
         <div>
           <label class="text-sm font-medium text-slate-700" for="locTime">Time</label>
-          <input id="locTime" required placeholder="12:00" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4" />
+          <input id="locTime" required class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4" />
           <p id="errLocTime" class="mt-1 hidden text-xs font-semibold text-rose-600"></p>
         </div>
         <div>
@@ -241,7 +241,9 @@
         <textarea id="locDesc" rows="3" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4"></textarea>
       </div>
       <div>
-        <label class="text-sm font-medium text-slate-700" for="locPhoto">Photo (optional)</label>
+        <label class="text-sm font-medium text-slate-700" for="locPhoto">
+          Photo <span class="font-normal text-slate-500">(optional)</span>
+        </label>
         <input id="locPhoto" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="mt-2 block w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white" />
         <p id="locPhotoStatus" class="mt-1 text-xs text-slate-500"></p>
         <p id="errLocPhoto" class="mt-1 hidden text-xs font-semibold text-rose-600"></p>

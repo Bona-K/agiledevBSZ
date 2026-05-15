@@ -84,7 +84,7 @@ def _prepare_create_route_data(
         errors["title"] = "Title is required."
 
     description = str(payload.get("description") or "").strip()
-    theme = str(payload.get("theme") or "").strip()
+    theme = str(payload.get("theme") or "").strip().lower()
     if not theme:
         errors["theme"] = "Theme is required."
     elif len(theme) > 80:
@@ -94,7 +94,15 @@ def _prepare_create_route_data(
     if not isinstance(tags, list):
         errors["tags"] = "Tags must be a list."
     else:
-        tags = [str(t).strip() for t in tags if str(t).strip()]
+        seen: set[str] = set()
+        norm_tags: list[str] = []
+        for raw in tags:
+            s = str(raw).strip().replace("#", "").strip().lower()
+            if not s or s in seen:
+                continue
+            seen.add(s)
+            norm_tags.append(s)
+        tags = norm_tags[:8]
 
     is_public = bool(payload.get("isPublic", True))
 

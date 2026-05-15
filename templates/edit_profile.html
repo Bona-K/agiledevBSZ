@@ -17,23 +17,6 @@
     <section>
       <a href="{{ url_for('profile') }}" class="text-sm font-semibold text-slate-700 hover:text-slate-900">← Back to Profile</a>
       <h1 class="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">Edit profile</h1>
-      <p class="mt-4 max-w-xl text-base leading-7 text-slate-700">
-        Update your display name and bio. Your username is used to sign in and cannot be changed here.
-      </p>
-
-      <div class="mt-8 rounded-2xl border border-slate-200 bg-white/70 p-5 shadow-sm backdrop-blur">
-        <div class="text-sm font-semibold text-slate-900">Tips</div>
-        <ul class="mt-2 space-y-1 text-sm text-slate-700">
-          <li class="flex items-center gap-2">
-            <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
-            Display name is shown on your profile and home greeting
-          </li>
-          <li class="flex items-center gap-2">
-            <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
-            Bio is optional — you can leave it blank
-          </li>
-        </ul>
-      </div>
 
       {% if error %}
       <div
@@ -93,7 +76,6 @@
               name="displayName"
               type="text"
               autocomplete="name"
-              placeholder="Your name"
               value="{{ display_name }}"
               maxlength="120"
               class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 transition focus:border-sky-400 focus:ring-4"
@@ -116,11 +98,9 @@
               id="bio"
               name="bio"
               rows="4"
-              placeholder="Tell others about yourself (optional)"
               maxlength="500"
               class="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 transition focus:border-sky-400 focus:ring-4"
             >{{ bio }}</textarea>
-            <p class="mt-1 text-xs text-slate-500">Up to 500 characters.</p>
           </div>
 
           <button
