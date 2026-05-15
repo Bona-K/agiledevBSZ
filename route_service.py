@@ -86,7 +86,9 @@ def _prepare_create_route_data(
     description = str(payload.get("description") or "").strip()
     theme = str(payload.get("theme") or "").strip()
     if not theme:
-        errors["theme"] = "Please choose a theme."
+        errors["theme"] = "Theme is required."
+    elif len(theme) > 80:
+        errors["theme"] = "Theme must be 80 characters or less."
 
     tags = payload.get("tags") or []
     if not isinstance(tags, list):

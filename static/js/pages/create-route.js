@@ -431,7 +431,7 @@
         ok = false;
       }
       if (!theme) {
-        $("#errRtTheme").removeClass("hidden").text("Please choose a theme.");
+        $("#errRtTheme").removeClass("hidden").text("Theme is required.");
         $("#rtTheme").addClass("border-rose-300 ring-2 ring-rose-200");
         ok = false;
       }
@@ -753,7 +753,7 @@
       $("#rtTitle").val("");
       $("#rtTags").val("");
       $("#rtDesc").val("");
-      $("#rtTheme").prop("selectedIndex", 0);
+      $("#rtTheme").val(String($("#rtTheme").attr("data-default-theme") || "").trim() || "first date");
       $("#rtPublic").prop("checked", true);
       routeCoverPendingUrl = null;
       routeCoverRemoved = false;
