@@ -330,10 +330,7 @@
 
     function renderSavedLocationSelect() {
       const options = (savedLocations || [])
-        .map(
-          (loc) =>
-            `<option value="${C.escapeHtml(loc.id)}">${C.escapeHtml(loc.name)} · ${C.escapeHtml(mapParkingLabel(loc.parking))}</option>`
-        )
+        .map((loc) => `<option value="${C.escapeHtml(loc.id)}">${C.escapeHtml(loc.name)}</option>`)
         .join("");
       $("#savedLocationSelect").html(options || `<option value="">No saved locations</option>`);
     }
