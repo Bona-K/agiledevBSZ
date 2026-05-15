@@ -1,7 +1,7 @@
 /* global $, window */
 
 // Page: profile.html
-// Features: profile info, tab switching, my/saved route lists, saved locations, delete actions.
+// Features: profile info, tab switching, my/saved route lists, delete actions.
 (function profilePage() {
   const C = window.AppCore;
   if (!C) return;
@@ -12,7 +12,6 @@
     C.mountNav();
 
     const users = C.readStore(C.STORAGE_KEYS.users, []);
-    const savedLocations = C.readStore(C.STORAGE_KEYS.locations, []);
 
     async function loadMyRoutes() {
       try {
@@ -40,18 +39,6 @@
           C.emptyCard("No saved routes yet.")
       );
 
-      const locationHtml = (savedLocations || [])
-        .map((loc) => {
-          return `
-            <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur">
-              <div class="text-sm font-semibold text-slate-900">${C.escapeHtml(loc.name)}</div>
-              <div class="mt-1 text-xs font-semibold text-slate-600">${C.escapeHtml(loc.time || "—")} · Parking ${C.escapeHtml(loc.parking || "unknown")}</div>
-              <div class="mt-2 text-sm text-slate-700">${C.escapeHtml(loc.desc || "")}</div>
-            </div>
-          `;
-        })
-        .join("");
-      $("#myLocationsGrid").html(locationHtml || C.emptyCard("No saved locations yet."));
     }
 
     function setTab(name) {
