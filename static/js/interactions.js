@@ -398,11 +398,6 @@
     return options[sum % options.length];
   }
 
-  function estimateHours(route) {
-    const stops = Number(route.locations?.length || 0);
-    return (Math.max(stops, 1) * 0.7 + 0.7).toFixed(1);
-  }
-
   function normalizeRouteCoverUrl(raw) {
     const s = String(raw || "").trim();
     if (!s) return null;
@@ -549,7 +544,7 @@
           }
           <div class="mt-3">
             <div class="text-[13px] font-semibold text-slate-900">${escapeHtml(route.title)}</div>
-            <div class="mt-1 text-xs text-slate-500">📍 ${stops} stops · ⏱ ${estimateHours(route)} hrs</div>
+            <div class="mt-1 text-xs text-slate-500">📍 ${stops} stops</div>
             <div class="mt-3 flex flex-wrap gap-2">${tagHtml}</div>
           </div>
         </a>
