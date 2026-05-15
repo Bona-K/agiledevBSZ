@@ -11,16 +11,8 @@
     C.seedIfEmpty();
     C.mountNav();
 
-    const session = C.getSession();
     const users = C.readStore(C.STORAGE_KEYS.users, []);
     const savedLocations = C.readStore(C.STORAGE_KEYS.locations, []);
-    const me = users.find((u) => u.id === session.userId) || users[0];
-
-    $("#profileName").text(me.name);
-    $("#profileUsername").text("@" + me.username);
-    $("#profileBio").text(me.bio);
-    $("#profileInitials").text(C.initials(me.name));
-    $("#profileJoined").text(C.formatDate(me.joinedAt));
 
     async function loadMyRoutes() {
       try {

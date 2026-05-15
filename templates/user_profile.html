@@ -11,14 +11,15 @@
     <aside class="space-y-4">
 
       <!-- Profile info -->
+      {% set profile_label = profile_user.display_name or profile_user.username %}
       <div class="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-md backdrop-blur">
         <div class="flex items-start gap-4">
           <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-base font-semibold text-white">
-            {{ profile_user.username[0]|upper }}
+            {{ profile_label[0]|upper }}
           </div>
           <div class="min-w-0">
             <div class="truncate text-lg font-semibold text-slate-900">
-              {{ profile_user.username }}
+              {{ profile_label }}
             </div>
             <div class="truncate text-sm font-semibold text-slate-600">
               @{{ profile_user.username }}

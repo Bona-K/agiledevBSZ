@@ -8,7 +8,7 @@
   <section class="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
     <div class="min-w-0 w-full">
       <div class="text-sm font-semibold text-slate-600">
-        Hi, <span data-session-name>{{ username or '—' }}</span> · What's your vibe today?
+        Hi, <span data-session-name>{{ profile_display_name or username or '—' }}</span> · What's your vibe today?
       </div>
       <h1 class="mt-2 truncate text-3xl font-semibold tracking-tight sm:text-4xl">Home</h1>
       <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-700">

@@ -15,6 +15,7 @@ class User(db.Model):
     username     = db.Column(db.String(80), unique=True, nullable=False)
     email        = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    display_name = db.Column(db.String(120), default="")
     bio          = db.Column(db.Text, default="")
     joined_at    = db.Column(db.DateTime, default=datetime.utcnow)
     profile_img  = db.Column(db.String(300), default="")

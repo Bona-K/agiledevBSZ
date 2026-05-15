@@ -41,22 +41,25 @@ def seed_demo_users():
     """Insert demo accounts on first run. Skips existing usernames."""
     demo_accounts = [
         {
-            "username": "alex",
-            "email":    "alex@myvibe.demo",
-            "password": "password123",
-            "bio":      "Hi, I'm Alex. I love exploring the city.",
+            "username":     "alex",
+            "email":        "alex@myvibe.demo",
+            "password":     "password123",
+            "display_name": "Alex",
+            "bio":          "Hi, I'm Alex. I love exploring the city.",
         },
         {
-            "username": "mina",
-            "email":    "mina@myvibe.demo",
-            "password": "password123",
-            "bio":      "Mina here — always looking for the next great route.",
+            "username":     "mina",
+            "email":        "mina@myvibe.demo",
+            "password":     "password123",
+            "display_name": "Mina",
+            "bio":          "Mina here — always looking for the next great route.",
         },
         {
-            "username": "sam",
-            "email":    "sam@myvibe.demo",
-            "password": "password123",
-            "bio":      "Sam — coffee and sunset chaser.",
+            "username":     "sam",
+            "email":        "sam@myvibe.demo",
+            "password":     "password123",
+            "display_name": "Sam",
+            "bio":          "Sam — coffee and sunset chaser.",
         },
     ]
 
@@ -67,6 +70,7 @@ def seed_demo_users():
                 username      = account["username"],
                 email         = account["email"],
                 password_hash = hash_password(account["password"]),
+                display_name  = account.get("display_name", ""),
                 bio           = account["bio"],
             )
             db.session.add(user)
@@ -89,9 +93,25 @@ def ensure_route_cover_photo_url_column():
         db.session.rollback()
 
 
+def ensure_user_display_name_column():
+    """SQLite: add users.display_name if missing (db.create_all does not ALTER)."""
+    try:
+        if db.engine.dialect.name != "sqlite":
+            return
+        rows = db.session.execute(text("PRAGMA table_info(users)")).fetchall()
+        col_names = {row[1] for row in rows}
+        if "display_name" in col_names:
+            return
+        db.session.execute(text("ALTER TABLE users ADD COLUMN display_name VARCHAR(120) DEFAULT ''"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
 with app.app_context():
     db.create_all()
     ensure_route_cover_photo_url_column()
+    ensure_user_display_name_column()
     seed_demo_users()
 
 # ---------------------------------------------------------------------------
@@ -137,7 +157,10 @@ def inject_template_globals():
             "isAuthenticated": user is not None,
             "username":        user.username if user else None,
             "userId":          user.id if user else None,
+            "displayName":     (user.display_name or user.username) if user else None,
+            "bio":             (user.bio or "") if user else None,
         },
+        "profile_display_name": (user.display_name or user.username) if user else None,
         "unread_count": unread_count,
     }
 
@@ -213,7 +236,8 @@ def signup():
             username      = username,
             email         = email,
             password_hash = hash_password(password),
-            bio           = f"Hi, I'm {name}.",
+            display_name  = name,
+            bio           = "",
         )
         db.session.add(new_user)
         db.session.commit()
@@ -281,9 +305,69 @@ def profile():
     return render_template(
         "profile.html",
         active_page="profile",
-        username=user.username if user else "—",
+        user=user,
         follower_count=follower_count,
         following_count=following_count,
+    )
+
+# ---------------------------------------------------------------------------
+# Edit profile
+# ---------------------------------------------------------------------------
+
+BIO_MAX_LENGTH = 500
+
+
+@app.route("/edit-profile", methods=["GET", "POST"])
+@login_required
+def edit_profile():
+    user = current_user()
+
+    if request.method == "POST":
+        display_name = request.form.get("displayName", "").strip()
+        bio          = request.form.get("bio", "").strip()
+
+        if not display_name:
+            return render_template(
+                "edit_profile.html",
+                active_page="profile",
+                error="Please enter your display name.",
+                display_name=display_name,
+                bio=bio,
+            )
+        if len(display_name) > 120:
+            return render_template(
+                "edit_profile.html",
+                active_page="profile",
+                error="Display name must be 120 characters or fewer.",
+                display_name=display_name,
+                bio=bio,
+            )
+        if len(bio) > BIO_MAX_LENGTH:
+            return render_template(
+                "edit_profile.html",
+                active_page="profile",
+                error=f"Bio must be {BIO_MAX_LENGTH} characters or fewer.",
+                display_name=display_name,
+                bio=bio,
+            )
+
+        user.display_name = display_name
+        user.bio          = bio
+        db.session.commit()
+
+        return render_template(
+            "edit_profile.html",
+            active_page="profile",
+            success="Profile updated successfully.",
+            display_name=user.display_name,
+            bio=user.bio or "",
+        )
+
+    return render_template(
+        "edit_profile.html",
+        active_page="profile",
+        display_name=user.display_name or "",
+        bio=user.bio or "",
     )
 
 # ---------------------------------------------------------------------------

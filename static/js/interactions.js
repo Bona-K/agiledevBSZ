@@ -93,17 +93,23 @@
     let users = readStore(STORAGE_KEYS.users, []);
     let user = users.find((entry) => entry.username === username);
 
+    const displayName = String(bootstrap.displayName || username).trim();
+    const bio = String(bootstrap.bio || "");
+
     if (!user) {
       user = {
         id: "u_" + Math.floor(Math.random() * 1000000),
-        name: username,
+        name: displayName,
         username,
-        bio: "No bio yet.",
+        bio,
         joinedAt: nowIso(),
       };
       users = users.concat(user);
-      writeStore(STORAGE_KEYS.users, users);
+    } else {
+      user.name = displayName;
+      user.bio = bio;
     }
+    writeStore(STORAGE_KEYS.users, users);
 
     const nextSession = {
       userId: user.id,
@@ -236,13 +242,13 @@
       .join("");
   }
 
-  function showToast(message, tone = "info") {
+  function showToast(message, tone = "info", durationMs = 2200) {
     const $toast = $("#toast");
     if ($toast.length === 0) return;
     const color = tone === "success" ? "bg-emerald-600" : tone === "error" ? "bg-rose-600" : "bg-slate-900";
     $toast.removeClass("bg-emerald-600 bg-rose-600 bg-slate-900").addClass(color).find("[data-toast-text]").text(message);
     $toast.addClass("is-visible");
-    global.setTimeout(() => $toast.removeClass("is-visible"), 2200);
+    global.setTimeout(() => $toast.removeClass("is-visible"), durationMs);
   }
 
   // Shared header behavior for authenticated pages.
