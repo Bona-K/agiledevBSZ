@@ -271,6 +271,25 @@
     }
   }
 
+  async function fetchCompletedRoutes() {
+    const bootstrap = serverBootstrap();
+    if (!bootstrap.isAuthenticated) {
+      return { routes: [], completedIds: [] };
+    }
+    try {
+      const data = await fetchJson("api/completed-routes");
+      const routes = (Array.isArray(data?.routes) ? data.routes : [])
+        .map(normalizeServerRoute)
+        .filter(Boolean);
+      const completedIds = Array.isArray(data?.completedIds)
+        ? data.completedIds.map((id) => String(id))
+        : routes.map((r) => r.id);
+      return { routes, completedIds };
+    } catch {
+      return { routes: [], completedIds: [] };
+    }
+  }
+
   function getSession() {
     return readStore(STORAGE_KEYS.session, null) || syncSessionWithServer();
   }
@@ -638,6 +657,7 @@
     normalizeServerRoute,
     fetchSavedRouteIds,
     fetchSavedRoutes,
+    fetchCompletedRoutes,
     fetchPublicRoutes,
     isServerRouteId,
     routeDetailUrl,

@@ -28,6 +28,7 @@
     async function renderPanels() {
       const myRoutes = await loadMyRoutes();
       const { routes: savedRoutes, savedIds } = await C.fetchSavedRoutes();
+      const { routes: completedRoutes } = await C.fetchCompletedRoutes();
 
       $("#myRoutesGrid").html(
         myRoutes.map((r) => C.routeManageCardHtml(r, users, savedIds)).join("") ||
@@ -37,6 +38,11 @@
       $("#savedRoutesGrid").html(
         savedRoutes.map((r) => C.routeCardHtml(r, users, savedIds)).join("") ||
           C.emptyCard("No saved routes yet.")
+      );
+
+      $("#completedRoutesGrid").html(
+        completedRoutes.map((r) => C.routeCardHtml(r, users, savedIds)).join("") ||
+          C.emptyCard("No completed routes yet.")
       );
 
     }

@@ -42,6 +42,12 @@ class User(db.Model):
         lazy="dynamic",
         cascade="all, delete-orphan",
     )
+    completed_routes = db.relationship(
+        "CompletedRoute",
+        back_populates="user",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self):
         return f"<User {self.username}>"
@@ -117,6 +123,12 @@ class Route(db.Model):
     author = db.relationship("User", back_populates="routes")
     saved_by = db.relationship(
         "SavedRoute",
+        back_populates="route",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+    completed_by = db.relationship(
+        "CompletedRoute",
         back_populates="route",
         lazy="dynamic",
         cascade="all, delete-orphan",
@@ -199,6 +211,30 @@ class SavedRoute(db.Model):
 
     def __repr__(self):
         return f"<SavedRoute user={self.user_id} route={self.route_id}>"
+
+
+# ---------------------------------------------------------------------------
+# CompletedRoute (user marked a route as done)
+# ---------------------------------------------------------------------------
+
+
+class CompletedRoute(db.Model):
+    __tablename__ = "completed_routes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    route_id = db.Column(db.Integer, db.ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    completed_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User", back_populates="completed_routes")
+    route = db.relationship("Route", back_populates="completed_by")
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "route_id", name="unique_completed_route"),
+    )
+
+    def __repr__(self):
+        return f"<CompletedRoute user={self.user_id} route={self.route_id}>"
 
 
 # ---------------------------------------------------------------------------

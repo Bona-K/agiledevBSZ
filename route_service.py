@@ -12,7 +12,17 @@ from typing import Any, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
-from models import db, Route, RouteComment, RouteLike, RouteLocation, RouteRating, SavedRoute, User
+from models import (
+    CompletedRoute,
+    db,
+    Route,
+    RouteComment,
+    RouteLike,
+    RouteLocation,
+    RouteRating,
+    SavedRoute,
+    User,
+)
 
 
 class RouteValidationError(Exception):
@@ -463,6 +473,69 @@ def unsave_route_for_user(user_id: int, route_id: int) -> bool:
     return True
 
 
+def get_completed_route_ids_for_user(user_id: int) -> list[int]:
+    """Route ids the user marked completed, most recent first."""
+    uid = _require_author_id(user_id)
+    rows = (
+        CompletedRoute.query.filter_by(user_id=uid)
+        .order_by(CompletedRoute.completed_at.desc())
+        .all()
+    )
+    return [int(row.route_id) for row in rows]
+
+
+def list_completed_routes_for_user(user_id: int) -> list[Route]:
+    """Full route rows for completions, preserving completion order."""
+    route_ids = get_completed_route_ids_for_user(user_id)
+    if not route_ids:
+        return []
+    routes = Route.query.filter(Route.id.in_(route_ids)).all()
+    by_id = {int(r.id): r for r in routes}
+    return [by_id[rid] for rid in route_ids if rid in by_id]
+
+
+def mark_route_completed_for_user(user_id: int, route_id: int) -> bool:
+    """Mark a viewable route complete for this user. Returns False if route missing."""
+    uid = _require_author_id(user_id)
+    route = get_route_for_viewer(int(route_id), uid)
+    if route is None:
+        return False
+    exists = CompletedRoute.query.filter_by(user_id=uid, route_id=route.id).first()
+    if exists:
+        return True
+    db.session.add(CompletedRoute(user_id=uid, route_id=route.id))
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return True
+
+
+def unmark_route_completed_for_user(user_id: int, route_id: int) -> bool:
+    """Remove completion record. Returns False if none."""
+    uid = _require_author_id(user_id)
+    row = CompletedRoute.query.filter_by(user_id=uid, route_id=int(route_id)).first()
+    if row is None:
+        return False
+    db.session.delete(row)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return True
+
+
+def user_has_completed_route(user_id: int, route_id: int) -> bool:
+    return (
+        CompletedRoute.query.filter_by(
+            user_id=int(user_id), route_id=int(route_id)
+        ).first()
+        is not None
+    )
+
+
 # ---------------------------------------------------------------------------
 # Route comments (viewer must be allowed to see the route)
 # ---------------------------------------------------------------------------
@@ -621,7 +694,7 @@ def serialize_route_for_client(
     One JSON-shaped dict for create response, detail, edit prefill, and listings.
 
     Mirrors static/js/pages/create-route.js and seed routes in interactions.js.
-    rating is null when no one has rated; userLiked/userRating when viewer is known.
+    rating is null when no one has rated; userLiked/userRating/userCompleted when viewer is known.
     """
     locs = sorted(route.locations, key=lambda x: x.stop_order)
     author_username = ""
@@ -665,5 +738,6 @@ def serialize_route_for_client(
         vid = int(viewer_user_id)
         payload["userLiked"] = user_has_liked_route(vid, rid)
         payload["userRating"] = get_user_route_rating(vid, rid)
+        payload["userCompleted"] = user_has_completed_route(vid, rid)
     return payload
 

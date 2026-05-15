@@ -14,18 +14,22 @@ from route_service import (
     create_route_from_payload,
     delete_route_for_owner,
     duplicate_route_for_user,
+    get_completed_route_ids_for_user,
     get_route_for_viewer,
+    get_saved_route_ids_for_user,
+    list_completed_routes_for_user,
     list_public_routes,
+    list_public_routes_for_author,
     list_route_comments,
     list_routes_for_author,
-    list_public_routes_for_author,
     list_saved_routes_for_user,
-    get_saved_route_ids_for_user,
+    mark_route_completed_for_user,
     save_route_for_user,
-    unsave_route_for_user,
     serialize_route_for_client,
     set_route_rating,
     toggle_route_like,
+    unmark_route_completed_for_user,
+    unsave_route_for_user,
     update_route_for_owner,
 )
 from utils import check_password, hash_password
@@ -619,6 +623,31 @@ def api_list_saved_routes():
     )
 
 
+@app.route("/api/completed-route-ids", methods=["GET"])
+@login_required
+def api_completed_route_ids():
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    ids = get_completed_route_ids_for_user(user.id)
+    return jsonify(ok=True, completedIds=ids)
+
+
+@app.route("/api/completed-routes", methods=["GET"])
+@login_required
+def api_list_completed_routes():
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    routes = list_completed_routes_for_user(user.id)
+    completed_ids = get_completed_route_ids_for_user(user.id)
+    return jsonify(
+        ok=True,
+        completedIds=completed_ids,
+        routes=[serialize_route_for_client(route, user.id) for route in routes],
+    )
+
+
 @app.route("/api/routes/<int:route_id>/save", methods=["POST"])
 @login_required
 def api_save_route(route_id):
@@ -639,6 +668,36 @@ def api_unsave_route(route_id):
     if not unsave_route_for_user(user.id, route_id):
         return jsonify(ok=False, error="Not saved."), 404
     return jsonify(ok=True, saved=False, savedIds=get_saved_route_ids_for_user(user.id))
+
+
+@app.route("/api/routes/<int:route_id>/complete", methods=["POST"])
+@login_required
+def api_mark_route_complete(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    if not mark_route_completed_for_user(user.id, route_id):
+        return jsonify(ok=False, error="Not found."), 404
+    return jsonify(
+        ok=True,
+        completed=True,
+        completedIds=get_completed_route_ids_for_user(user.id),
+    )
+
+
+@app.route("/api/routes/<int:route_id>/complete", methods=["DELETE"])
+@login_required
+def api_unmark_route_complete(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    if not unmark_route_completed_for_user(user.id, route_id):
+        return jsonify(ok=False, error="Not completed."), 404
+    return jsonify(
+        ok=True,
+        completed=False,
+        completedIds=get_completed_route_ids_for_user(user.id),
+    )
 
 
 @app.route("/api/routes/public", methods=["GET"])

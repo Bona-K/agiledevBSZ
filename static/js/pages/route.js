@@ -115,6 +115,13 @@
     $btn.text(liked ? `❤ Liked (${count})` : `❤ Like (${count})`);
   }
 
+  function updateCompletedButton(route) {
+    const done = Boolean(route.userCompleted);
+    const $btn = $("#btnCompleted");
+    $btn.text(done ? "Mark as incomplete" : "Mark as completed");
+    $btn.toggleClass("border-emerald-300 bg-emerald-50 text-emerald-900", done);
+  }
+
   function renderSimilarRoutes(route, routes) {
     const currentTags = new Set((route.tags || []).map((t) => String(t || "").toLowerCase()));
     const currentTheme = String(route.theme || "").toLowerCase();
@@ -223,6 +230,7 @@
       `${createdLabel} · ${route.locations.length} stops · ★ ${formatRatingLabel(route.rating)}`
     );
     updateLikeButton(route);
+    updateCompletedButton(route);
     if (route.userRating != null && route.userRating !== "") {
       $("#ratingSelect").val(String(route.userRating));
     }
@@ -413,7 +421,34 @@
       }, 350);
     });
 
-    $("#btnCompleted").on("click", () => C.showToast("Marked as completed.", "success"));
+    $("#btnCompleted").on("click", async () => {
+      if (numericId && boot.isAuthenticated) {
+        const wasDone = Boolean(route.userCompleted);
+        try {
+          if (wasDone) {
+            await C.fetchJson(`api/routes/${encodeURIComponent(route.id)}/complete`, {
+              method: "DELETE",
+            });
+            route.userCompleted = false;
+            C.showToast("Marked as incomplete.", "success");
+          } else {
+            await C.fetchJson(`api/routes/${encodeURIComponent(route.id)}/complete`, {
+              method: "POST",
+            });
+            route.userCompleted = true;
+            C.showToast("Marked as completed.", "success");
+          }
+          updateCompletedButton(route);
+        } catch (err) {
+          if (err.status === 401) C.showToast("Please sign in first.", "error");
+          else C.showToast(err.body?.error || err.message || "Could not update completion.", "error");
+        }
+        return;
+      }
+      route.userCompleted = !Boolean(route.userCompleted);
+      updateCompletedButton(route);
+      C.showToast(route.userCompleted ? "Marked as completed." : "Marked as incomplete.", "success");
+    });
     $("#btnSubmitRating").on("click", async () => {
       const rating = String($("#ratingSelect").val() || "").trim();
       if (!rating) {
