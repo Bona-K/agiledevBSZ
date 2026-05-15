@@ -62,7 +62,7 @@
 
     let locations = isEdit
       ? (editingRoute.locations || []).slice().sort((a, b) => a.order - b.order)
-      : [{ order: 1, time: "10:00", name: "Place name", desc: "Short description", parking: "unknown", photoUrl: null }];
+      : [];
     let locModalMode = "create";
     let editingLocIndex = -1;
     let locPendingPhotoUrl = null;
@@ -166,7 +166,29 @@
       return "Unknown";
     }
 
+    const INVALID_STOP_NAMES = new Set(["place name"]);
+
+    function normalizeStopName(name) {
+      return String(name || "").trim();
+    }
+
+    function isValidStopName(name) {
+      const trimmed = normalizeStopName(name);
+      if (!trimmed) return false;
+      if (INVALID_STOP_NAMES.has(trimmed.toLowerCase())) return false;
+      return true;
+    }
+
+    function sortLocationsByOrder() {
+      locations.sort((a, b) => Number(a.order) - Number(b.order));
+    }
+
+    function locationIndexByOrder(order) {
+      return locations.findIndex((l) => Number(l.order) === Number(order));
+    }
+
     function renumber() {
+      sortLocationsByOrder();
       locations = locations.map((l, i) => ({ ...l, order: i + 1 }));
     }
 
@@ -263,14 +285,16 @@
       if (typeof d.description === "string") $("#rtDesc").val(d.description);
       if (typeof d.isPublic === "boolean") $("#rtPublic").prop("checked", d.isPublic);
       if (Array.isArray(d.locations) && d.locations.length) {
-        locations = d.locations.map((loc, i) => ({
-          order: i + 1,
-          name: loc.name || "",
-          time: loc.time || "",
-          desc: loc.desc || loc.description || "",
-          parking: loc.parking || "unknown",
-          photoUrl: loc.photoUrl || null,
-        }));
+        locations = d.locations
+          .map((loc, i) => ({
+            order: i + 1,
+            name: loc.name || "",
+            time: loc.time || "",
+            desc: loc.desc || loc.description || "",
+            parking: loc.parking || "unknown",
+            photoUrl: loc.photoUrl || null,
+          }))
+          .filter((loc) => isValidStopName(loc.name) && String(loc.time || "").trim());
         renumber();
       }
       if (typeof d.routeCoverRemoved === "boolean") routeCoverRemoved = d.routeCoverRemoved;
@@ -324,11 +348,16 @@
       $("#savedLocationSelect").html(options || `<option value="">No saved locations</option>`);
     }
 
+    function indexFromLocOrderAttr($btn) {
+      const order = Number($btn.attr("data-loc-order"));
+      if (!Number.isFinite(order) || order < 1) return -1;
+      return locationIndexByOrder(order);
+    }
+
     function renderLocs() {
+      sortLocationsByOrder();
       const html = locations
-        .slice()
-        .sort((a, b) => a.order - b.order)
-        .map((loc, idx) => {
+        .map((loc) => {
           const thumb = loc.photoUrl
             ? `<div class="mt-2"><img src="${C.escapeHtml(loc.photoUrl)}" alt="" class="max-h-24 rounded-lg border border-slate-200 object-cover" loading="lazy" /></div>`
             : "";
@@ -342,10 +371,10 @@
                   ${thumb}
                 </div>
                 <div class="flex flex-col gap-2">
-                  <button data-edit="${idx}" class="btnEdit rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">Edit</button>
-                  <button data-up="${idx}" class="btnUp rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↑</button>
-                  <button data-down="${idx}" class="btnDown rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↓</button>
-                  <button data-del="${idx}" class="btnDel rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700" type="button">Delete</button>
+                  <button data-loc-order="${loc.order}" class="btnEdit rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">Edit</button>
+                  <button data-loc-order="${loc.order}" class="btnUp rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↑</button>
+                  <button data-loc-order="${loc.order}" class="btnDown rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↓</button>
+                  <button data-loc-order="${loc.order}" class="btnDel rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700" type="button">Delete</button>
                 </div>
               </div>
             </li>
@@ -358,6 +387,7 @@
     }
 
     function openLocModal(modeName, idx) {
+      sortLocationsByOrder();
       locModalMode = modeName;
       editingLocIndex = typeof idx === "number" ? idx : -1;
       clearLocModalErrors();
@@ -415,11 +445,31 @@
         $("#rtTheme").addClass("border-rose-300 ring-2 ring-rose-200");
         ok = false;
       }
+      if (!validateAllStops()) ok = false;
+      return ok;
+    }
+
+    function validateAllStops() {
+      sortLocationsByOrder();
+      const issues = [];
       if (!locations.length) {
         $("#errRtLocations").removeClass("hidden").text("Add at least one location.");
-        ok = false;
+        return false;
       }
-      return ok;
+      locations.forEach((loc, i) => {
+        const time = String(loc.time || "").trim();
+        if (!isValidStopName(loc.name)) {
+          issues.push(`Stop ${i + 1}: location name is required.`);
+        }
+        if (!time) {
+          issues.push(`Stop ${i + 1}: time is required.`);
+        }
+      });
+      if (!issues.length) return true;
+      const summary = issues.slice(0, 4).join(" ");
+      $("#errLocList").removeClass("hidden").text(summary + (issues.length > 4 ? " …" : ""));
+      $("#errRtLocations").removeClass("hidden").text("Fix each stop before saving.");
+      return false;
     }
 
     function buildCreatePayload() {
@@ -472,6 +522,7 @@
     }
 
     if (isEdit) {
+      renumber();
       $("#rtTitle").val(editingRoute.title);
       $("#rtTheme").val(editingRoute.theme);
       $("#rtTags").val((editingRoute.tags || []).join(","));
@@ -558,7 +609,7 @@
       const desc = String($("#locDesc").val() || "").trim();
       const parking = String($("#locParking").val() || "unknown");
       let modalOk = true;
-      if (!name) {
+      if (!isValidStopName(name)) {
         $("#errLocName").removeClass("hidden").text("Location name is required.");
         $("#locName").addClass("border-rose-300");
         modalOk = false;
@@ -609,13 +660,22 @@
       }
     });
 
+    $("#locName").on("input", function () {
+      $(this).removeClass("border-rose-300");
+      $("#errLocName").addClass("hidden").text("");
+    });
+    $("#locTime").on("input", function () {
+      $(this).removeClass("border-rose-300");
+      $("#errLocTime").addClass("hidden").text("");
+    });
+
     $("#locList").on("click", ".btnEdit", function () {
-      const idx = Number($(this).attr("data-edit"));
+      const idx = indexFromLocOrderAttr($(this));
       if (idx < 0 || idx >= locations.length) return;
       openLocModal("edit", idx);
     });
     $("#locList").on("click", ".btnDel", function () {
-      const idx = Number($(this).attr("data-del"));
+      const idx = indexFromLocOrderAttr($(this));
       if (idx < 0 || idx >= locations.length) return;
       const stop = locations[idx];
       const label = stop && stop.name ? `"${stop.name}"` : "this stop";
@@ -627,7 +687,8 @@
       C.showToast("Location removed.", "success");
     });
     $("#locList").on("click", ".btnUp", function () {
-      const idx = Number($(this).attr("data-up"));
+      const idx = indexFromLocOrderAttr($(this));
+      if (idx < 0) return;
       if (idx <= 0) {
         C.showToast("Already at the top.", "info");
         return;
@@ -641,7 +702,8 @@
       C.showToast("Stop moved up.", "success");
     });
     $("#locList").on("click", ".btnDown", function () {
-      const idx = Number($(this).attr("data-down"));
+      const idx = indexFromLocOrderAttr($(this));
+      if (idx < 0) return;
       if (idx >= locations.length - 1) {
         C.showToast("Already at the bottom.", "info");
         return;
@@ -703,9 +765,7 @@
       routeCoverRemoved = false;
       $("#rtCover").val("");
       syncRouteCoverPreview();
-      locations = [
-        { order: 1, time: "10:00", name: "Place name", desc: "Short description", parking: "unknown", photoUrl: null },
-      ];
+      locations = [];
       renderLocs();
       renderPreview();
       C.showToast("Draft discarded.", "info");
