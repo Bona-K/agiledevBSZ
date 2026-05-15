@@ -586,12 +586,14 @@
         lng: prev && prev.lng != null && prev.lng !== "" ? prev.lng : null,
       };
 
-      if (locModalMode === "edit" && editingLocIndex >= 0) locations[editingLocIndex] = loc;
+      const wasEdit = locModalMode === "edit" && editingLocIndex >= 0;
+      if (wasEdit) locations[editingLocIndex] = loc;
       else locations.push(loc);
       renumber();
       renderLocs();
       closeLocModal();
       scheduleDraftSave();
+      C.showToast(wasEdit ? "Location updated." : "Location added.", "success");
 
       const exists = savedLocations.some((x) => x.name.toLowerCase() === name.toLowerCase());
       if (!exists) {
@@ -615,30 +617,42 @@
     $("#locList").on("click", ".btnDel", function () {
       const idx = Number($(this).attr("data-del"));
       if (idx < 0 || idx >= locations.length) return;
+      const stop = locations[idx];
+      const label = stop && stop.name ? `"${stop.name}"` : "this stop";
+      if (!window.confirm(`Remove ${label}? This cannot be undone.`)) return;
       locations.splice(idx, 1);
       renumber();
       renderLocs();
       scheduleDraftSave();
+      C.showToast("Location removed.", "success");
     });
     $("#locList").on("click", ".btnUp", function () {
       const idx = Number($(this).attr("data-up"));
-      if (idx <= 0) return;
+      if (idx <= 0) {
+        C.showToast("Already at the top.", "info");
+        return;
+      }
       const tmp = locations[idx - 1];
       locations[idx - 1] = locations[idx];
       locations[idx] = tmp;
       renumber();
       renderLocs();
       scheduleDraftSave();
+      C.showToast("Stop moved up.", "success");
     });
     $("#locList").on("click", ".btnDown", function () {
       const idx = Number($(this).attr("data-down"));
-      if (idx >= locations.length - 1) return;
+      if (idx >= locations.length - 1) {
+        C.showToast("Already at the bottom.", "info");
+        return;
+      }
       const tmp = locations[idx + 1];
       locations[idx + 1] = locations[idx];
       locations[idx] = tmp;
       renumber();
       renderLocs();
       scheduleDraftSave();
+      C.showToast("Stop moved down.", "success");
     });
 
     $("#btnAddSavedLoc").on("click", () => {
@@ -656,6 +670,7 @@
       renumber();
       renderLocs();
       scheduleDraftSave();
+      C.showToast("Location added.", "success");
     });
 
     $("#rtTitle, #rtTheme, #rtTags, #rtDesc").on("input", () => {
