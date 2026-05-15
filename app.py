@@ -16,6 +16,7 @@ from route_service import (
     get_route_for_viewer,
     list_public_routes,
     list_routes_for_author,
+    list_public_routes_for_author,
     list_saved_routes_for_user,
     get_saved_route_ids_for_user,
     save_route_for_user,
@@ -466,7 +467,7 @@ def user_profile(username):
         is_following=is_following,
         follower_count=follower_count,
         following_count=following_count,
-        user_routes=[],  # Connected after team PR route_service merge
+        user_routes=list_public_routes_for_author(profile_user.id),
     )
 
 # ---------------------------------------------------------------------------
