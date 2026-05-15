@@ -183,12 +183,8 @@
       locations.sort((a, b) => Number(a.order) - Number(b.order));
     }
 
-    function locationIndexByOrder(order) {
-      return locations.findIndex((l) => Number(l.order) === Number(order));
-    }
-
     function renumber() {
-      sortLocationsByOrder();
+      // Assign order from current array positions only — do not sort here or ↑↓ swaps are undone.
       locations = locations.map((l, i) => ({ ...l, order: i + 1 }));
     }
 
@@ -348,16 +344,16 @@
       $("#savedLocationSelect").html(options || `<option value="">No saved locations</option>`);
     }
 
-    function indexFromLocOrderAttr($btn) {
-      const order = Number($btn.attr("data-loc-order"));
-      if (!Number.isFinite(order) || order < 1) return -1;
-      return locationIndexByOrder(order);
+    function locationIndexFromBtn($btn) {
+      const idx = Number($btn.closest("button").attr("data-loc-idx"));
+      if (!Number.isFinite(idx) || idx < 0 || idx >= locations.length) return -1;
+      return idx;
     }
 
     function renderLocs() {
       sortLocationsByOrder();
       const html = locations
-        .map((loc) => {
+        .map((loc, idx) => {
           const thumb = loc.photoUrl
             ? `<div class="mt-2"><img src="${C.escapeHtml(loc.photoUrl)}" alt="" class="max-h-24 rounded-lg border border-slate-200 object-cover" loading="lazy" /></div>`
             : "";
@@ -371,10 +367,10 @@
                   ${thumb}
                 </div>
                 <div class="flex flex-col gap-2">
-                  <button data-loc-order="${loc.order}" class="btnEdit rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">Edit</button>
-                  <button data-loc-order="${loc.order}" class="btnUp rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↑</button>
-                  <button data-loc-order="${loc.order}" class="btnDown rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↓</button>
-                  <button data-loc-order="${loc.order}" class="btnDel rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700" type="button">Delete</button>
+                  <button data-loc-idx="${idx}" class="btnEdit rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">Edit</button>
+                  <button data-loc-idx="${idx}" class="btnUp rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↑</button>
+                  <button data-loc-idx="${idx}" class="btnDown rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↓</button>
+                  <button data-loc-idx="${idx}" class="btnDel rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700" type="button">Delete</button>
                 </div>
               </div>
             </li>
@@ -525,7 +521,11 @@
       renumber();
       $("#rtTitle").val(editingRoute.title);
       $("#rtTheme").val(editingRoute.theme);
-      $("#rtTags").val((editingRoute.tags || []).join(","));
+      $("#rtTags").val(
+        Array.isArray(editingRoute.tags)
+          ? editingRoute.tags.join(",")
+          : String(editingRoute.tags || "")
+      );
       $("#rtDesc").val(editingRoute.description);
       $("#rtPublic").prop("checked", Boolean(editingRoute.isPublic));
       $("h1").first().text("Edit route");
@@ -670,13 +670,13 @@
     });
 
     $("#locList").on("click", ".btnEdit", function () {
-      const idx = indexFromLocOrderAttr($(this));
-      if (idx < 0 || idx >= locations.length) return;
+      const idx = locationIndexFromBtn($(this));
+      if (idx < 0) return;
       openLocModal("edit", idx);
     });
     $("#locList").on("click", ".btnDel", function () {
-      const idx = indexFromLocOrderAttr($(this));
-      if (idx < 0 || idx >= locations.length) return;
+      const idx = locationIndexFromBtn($(this));
+      if (idx < 0) return;
       const stop = locations[idx];
       const label = stop && stop.name ? `"${stop.name}"` : "this stop";
       if (!window.confirm(`Remove ${label}? This cannot be undone.`)) return;
@@ -687,7 +687,7 @@
       C.showToast("Location removed.", "success");
     });
     $("#locList").on("click", ".btnUp", function () {
-      const idx = indexFromLocOrderAttr($(this));
+      const idx = locationIndexFromBtn($(this));
       if (idx < 0) return;
       if (idx <= 0) {
         C.showToast("Already at the top.", "info");
@@ -702,7 +702,7 @@
       C.showToast("Stop moved up.", "success");
     });
     $("#locList").on("click", ".btnDown", function () {
-      const idx = indexFromLocOrderAttr($(this));
+      const idx = locationIndexFromBtn($(this));
       if (idx < 0) return;
       if (idx >= locations.length - 1) {
         C.showToast("Already at the bottom.", "info");
