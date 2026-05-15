@@ -199,12 +199,22 @@
     }
 
     const author = users.find((u) => u.id === route.authorId);
-    const authorLabel = route.authorUsername || (author ? author.username || author.name : "Unknown");
+    const authorUsername =
+      String(route.authorUsername || "").trim() ||
+      (author ? String(author.username || "").trim() : "");
+    const authorLabel =
+      String(route.authorDisplayName || "").trim() ||
+      (author ? String(author.name || author.username || "").trim() : "") ||
+      authorUsername ||
+      "Unknown";
     $("#routeTitle").text(route.title);
     $("#routeTheme").text(route.theme);
     $("#routeAuthor").text(authorLabel);
-    if (authorLabel && authorLabel !== "Unknown") {
-      $("#routeAuthorLink").attr("href", C.appUrl(`user/${encodeURIComponent(String(authorLabel).toLowerCase())}`));
+    if (authorUsername) {
+      $("#routeAuthorLink").attr(
+        "href",
+        C.appUrl(`user/${encodeURIComponent(authorUsername.toLowerCase())}`)
+      );
     } else {
       $("#routeAuthorLink").attr("href", "#");
     }

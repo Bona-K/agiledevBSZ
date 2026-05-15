@@ -625,14 +625,17 @@ def serialize_route_for_client(
     """
     locs = sorted(route.locations, key=lambda x: x.stop_order)
     author_username = ""
+    author_display_name = ""
     if getattr(route, "author", None) is not None:
         author_username = str(route.author.username or "")
+        author_display_name = (route.author.display_name or "").strip() or author_username
 
     rid = int(route.id)
     payload: dict[str, Any] = {
         "id": route.id,
         "authorId": route.author_id,
         "authorUsername": author_username,
+        "authorDisplayName": author_display_name,
         "title": route.title,
         "description": route.description,
         "theme": route.theme,

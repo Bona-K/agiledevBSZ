@@ -900,13 +900,18 @@ def route_detail(route_id):
         route_obj = get_route_for_viewer(rid, user.id if user else None)
         if route_obj is None:
             abort(404)
-        author_username = route_obj.author.username if route_obj.author else "—"
+        if route_obj.author:
+            author_username = route_obj.author.username
+            author_label = (route_obj.author.display_name or "").strip() or author_username
+        else:
+            author_username = ""
+            author_label = "—"
         route_payload = serialize_route_for_client(route_obj, user.id if user else None)
         route_dict = {
             "id":          str(route_obj.id),
             "title":       route_obj.title,
             "theme":       route_obj.theme,
-            "author":      author_username,
+            "author":      author_label,
             "meta":        f"{len(route_obj.locations)} stops · public" if route_obj.is_public else f"{len(route_obj.locations)} stops · private",
             "description": route_obj.description,
             "tags":        list(route_obj.tags or []),
