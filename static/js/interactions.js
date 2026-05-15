@@ -218,6 +218,13 @@
     syncSessionWithServer();
   }
 
+  function formatRouteRating(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "—";
+    return String(n);
+  }
+
   function normalizeServerRoute(r) {
     if (!r || typeof r !== "object") return null;
     return { ...r, id: String(r.id), authorId: r.authorId };
@@ -411,6 +418,30 @@
     return ROUTE_CARD_DEFAULT_COVER;
   }
 
+  function isServerRouteId(routeId) {
+    return /^\d+$/.test(String(routeId || ""));
+  }
+
+  async function fetchPublicRoutes() {
+    const bootstrap = serverBootstrap();
+    if (!bootstrap.isAuthenticated) {
+      return readStore(STORAGE_KEYS.routes, []).filter((r) => r.isPublic);
+    }
+    try {
+      const data = await fetchJson("api/routes/public");
+      return (Array.isArray(data?.routes) ? data.routes : [])
+        .map(normalizeServerRoute)
+        .filter(Boolean);
+    } catch {
+      return readStore(STORAGE_KEYS.routes, []).filter((r) => r.isPublic);
+    }
+  }
+
+  function applyLikeButtonState($btn, liked, likes) {
+    $btn.toggleClass("is-liked", Boolean(liked));
+    $btn.find("[data-like-count]").text(Number(likes || 0));
+  }
+
   // Shared interaction used by any page rendering route cards.
   function bindRouteLikeInteractions() {
     $("body")
@@ -418,12 +449,32 @@
       .on("click.routeLike", ".routeLikeBtn", function onLike(e) {
         e.preventDefault();
         e.stopPropagation();
-        const routeId = String($(this).attr("data-route-id") || "");
+        const $btn = $(this);
+        const routeId = String($btn.attr("data-route-id") || "");
         if (!routeId) return;
+
+        const bootstrap = serverBootstrap();
+        if (isServerRouteId(routeId) && bootstrap.isAuthenticated) {
+          void (async () => {
+            try {
+              const data = await fetchJson(`api/routes/${encodeURIComponent(routeId)}/like`, {
+                method: "POST",
+              });
+              const liked = Boolean(data.userLiked ?? data.liked);
+              const likes = Number(data.likes || 0);
+              applyLikeButtonState($btn, liked, likes);
+              $(document).trigger("mv:routeLikeChanged", [{ routeId, likes, userLiked: liked }]);
+            } catch (err) {
+              if (err.status === 401) showToast("Please sign in first.", "error");
+              else showToast(err.body?.error || err.message || "Could not update like.", "error");
+            }
+          })();
+          return;
+        }
 
         const routes = readStore(STORAGE_KEYS.routes, []);
         const likedIds = new Set(readStore("mv_liked_route_ids", []));
-        const route = routes.find((r) => r.id === routeId);
+        const route = routes.find((r) => String(r.id) === routeId);
         if (!route) return;
 
         let nextLiked = false;
@@ -438,9 +489,10 @@
 
         writeStore(STORAGE_KEYS.routes, routes);
         writeStore("mv_liked_route_ids", Array.from(likedIds));
-        const $btn = $(this);
-        $btn.toggleClass("is-liked", nextLiked);
-        $btn.find("[data-like-count]").text(route.likes);
+        applyLikeButtonState($btn, nextLiked, route.likes);
+        $(document).trigger("mv:routeLikeChanged", [
+          { routeId, likes: route.likes, userLiked: nextLiked },
+        ]);
       });
   }
 
@@ -467,7 +519,10 @@
     const savedSet = new Set((savedIds || []).map(String));
     const saved = savedSet.has(String(route.id));
     const likedIds = new Set(readStore("mv_liked_route_ids", []));
-    const isLiked = likedIds.has(route.id);
+    const isLiked =
+      isServerRouteId(route.id) && route.userLiked !== undefined
+        ? Boolean(route.userLiked)
+        : likedIds.has(String(route.id));
     const themeKey = normalizeTheme(route.theme);
     const visual = themeVisual(themeKey);
     const badge = routeBadge(route);
@@ -535,7 +590,7 @@
         <a href="${routeDetailUrl(route.id)}" class="block">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
-              <div class="text-xs font-semibold text-slate-600">${escapeHtml(route.theme)} · ★ ${escapeHtml(route.rating)}</div>
+              <div class="text-xs font-semibold text-slate-600">${escapeHtml(route.theme)} · ★ ${escapeHtml(formatRouteRating(route.rating))}</div>
               <div class="mt-1 line-clamp-2 text-sm font-semibold text-slate-900 hover:text-sky-800">${escapeHtml(route.title)}</div>
               <div class="mt-2 text-xs text-slate-600">by ${escapeHtml(authorName)} · ${escapeHtml(formatDate(route.createdAt))}</div>
             </div>
@@ -588,6 +643,8 @@
     normalizeServerRoute,
     fetchSavedRouteIds,
     fetchSavedRoutes,
+    fetchPublicRoutes,
+    isServerRouteId,
     routeDetailUrl,
     createRouteUrl,
     routeCardHtml,

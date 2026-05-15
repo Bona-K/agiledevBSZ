@@ -67,6 +67,21 @@
     );
   }
 
+  function formatRatingLabel(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "—";
+    return String(n);
+  }
+
+  function updateLikeButton(route) {
+    const count = Number(route.likes || 0);
+    const liked = Boolean(route.userLiked);
+    const $btn = $("#btnLike");
+    $btn.toggleClass("border-rose-300 bg-rose-50 text-rose-700", liked);
+    $btn.text(liked ? `❤ Liked (${count})` : `❤ Like (${count})`);
+  }
+
   function renderSimilarRoutes(route, routes) {
     const currentTags = new Set((route.tags || []).map((t) => String(t || "").toLowerCase()));
     const currentTheme = String(route.theme || "").toLowerCase();
@@ -161,7 +176,13 @@
       $("#routeAuthorLink").attr("href", "#");
     }
     const createdLabel = route.createdAt ? C.formatDate(route.createdAt) : "—";
-    $("#routeMeta").text(`${createdLabel} · ${route.locations.length} stops · ★ ${route.rating ?? 4}`);
+    $("#routeMeta").text(
+      `${createdLabel} · ${route.locations.length} stops · ★ ${formatRatingLabel(route.rating)}`
+    );
+    updateLikeButton(route);
+    if (route.userRating != null && route.userRating !== "") {
+      $("#ratingSelect").val(String(route.userRating));
+    }
     $("#routeDesc").text(route.description);
     $("#routeTags").html(
       (route.tags || [])
@@ -208,9 +229,26 @@
       $("#btnEditRoute").attr("href", C.createRouteUrl(route.id, "edit"));
     }
 
-    $("#btnLike").on("click", () => {
+    $("#btnLike").on("click", async () => {
+      const routeKey = String(route.id);
+      if (numericId && boot.isAuthenticated) {
+        try {
+          const data = await C.fetchJson(`api/routes/${encodeURIComponent(routeKey)}/like`, {
+            method: "POST",
+          });
+          route.likes = Number(data.likes || 0);
+          route.userLiked = Boolean(data.userLiked ?? data.liked);
+          updateLikeButton(route);
+          C.showToast(route.userLiked ? "Route liked." : "Like removed.", "success");
+        } catch (err) {
+          if (err.status === 401) C.showToast("Please sign in first.", "error");
+          else C.showToast(err.body?.error || err.message || "Could not update like.", "error");
+        }
+        return;
+      }
       route.likes = (route.likes || 0) + 1;
       C.writeStore(C.STORAGE_KEYS.routes, routes);
+      updateLikeButton(route);
       C.showToast("Liked (mock).", "success");
     });
 
@@ -317,10 +355,35 @@
     });
 
     $("#btnCompleted").on("click", () => C.showToast("Marked as completed.", "success"));
-    $("#btnSubmitRating").on("click", () => {
+    $("#btnSubmitRating").on("click", async () => {
       const rating = String($("#ratingSelect").val() || "").trim();
       if (!rating) {
-        C.showToast("Please choose a rating first.", "error");
+        C.showToast("Please choose a rating from 1 to 5.", "error");
+        return;
+      }
+      const score = Number(rating);
+      if (!Number.isInteger(score) || score < 1 || score > 5) {
+        C.showToast("Rating must be between 1 and 5.", "error");
+        return;
+      }
+      if (numericId && boot.isAuthenticated) {
+        try {
+          const data = await C.fetchJson(`api/routes/${encodeURIComponent(String(route.id))}/rating`, {
+            method: "POST",
+            body: { rating: score },
+          });
+          route.rating = data.rating;
+          route.userRating = data.userRating;
+          const label = route.createdAt ? C.formatDate(route.createdAt) : "—";
+          $("#routeMeta").text(
+            `${label} · ${route.locations.length} stops · ★ ${formatRatingLabel(route.rating)}`
+          );
+          C.showToast("Rating saved.", "success");
+        } catch (err) {
+          if (err.status === 401) C.showToast("Please sign in first.", "error");
+          else if (err.body?.errors?.rating) C.showToast(err.body.errors.rating, "error");
+          else C.showToast(err.body?.error || err.message || "Could not save rating.", "error");
+        }
         return;
       }
       C.showToast(`Rating submitted: ${rating}/5.`, "success");

@@ -121,6 +121,18 @@ class Route(db.Model):
         lazy="dynamic",
         cascade="all, delete-orphan",
     )
+    likes = db.relationship(
+        "RouteLike",
+        back_populates="route",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+    ratings = db.relationship(
+        "RouteRating",
+        back_populates="route",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
     # Ordered stops; cascade delete keeps DB aligned when a route is removed later.
     locations = db.relationship(
         "RouteLocation",
@@ -180,3 +192,47 @@ class SavedRoute(db.Model):
 
     def __repr__(self):
         return f"<SavedRoute user={self.user_id} route={self.route_id}>"
+
+
+# ---------------------------------------------------------------------------
+# RouteLike / RouteRating (one per user per route)
+# ---------------------------------------------------------------------------
+
+class RouteLike(db.Model):
+    __tablename__ = "route_likes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    route_id = db.Column(db.Integer, db.ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    route = db.relationship("Route", back_populates="likes")
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "route_id", name="unique_route_like"),
+    )
+
+    def __repr__(self):
+        return f"<RouteLike user={self.user_id} route={self.route_id}>"
+
+
+class RouteRating(db.Model):
+    __tablename__ = "route_ratings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    route_id = db.Column(db.Integer, db.ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    score = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    route = db.relationship("Route", back_populates="ratings")
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "route_id", name="unique_route_rating"),
+    )
+
+    def __repr__(self):
+        return f"<RouteRating user={self.user_id} route={self.route_id} score={self.score}>"

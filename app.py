@@ -22,6 +22,8 @@ from route_service import (
     save_route_for_user,
     unsave_route_for_user,
     serialize_route_for_client,
+    set_route_rating,
+    toggle_route_like,
     update_route_for_owner,
 )
 from utils import check_password, hash_password
@@ -501,7 +503,7 @@ def api_create_route():
         return jsonify(ok=False, errors=exc.errors), 400
     except Exception:
         return jsonify(ok=False, errors={"": "Could not save route. Try again."}), 500
-    return jsonify(ok=True, route=serialize_route_for_client(route)), 201
+    return jsonify(ok=True, route=serialize_route_for_client(route, user.id)), 201
 
 
 @app.route("/api/routes/<int:route_id>", methods=["GET"])
@@ -513,7 +515,7 @@ def api_get_route(route_id):
     route = get_route_for_viewer(route_id, user.id)
     if route is None:
         return jsonify(ok=False, error="Not found."), 404
-    return jsonify(ok=True, route=serialize_route_for_client(route))
+    return jsonify(ok=True, route=serialize_route_for_client(route, user.id))
 
 
 @app.route("/api/routes/<int:route_id>", methods=["PATCH", "PUT"])
@@ -538,7 +540,7 @@ def api_update_route(route_id):
         return jsonify(ok=False, errors=exc.errors), 400
     except Exception:
         return jsonify(ok=False, errors={"": "Could not update route. Try again."}), 500
-    return jsonify(ok=True, route=serialize_route_for_client(route))
+    return jsonify(ok=True, route=serialize_route_for_client(route, user.id))
 
 
 @app.route("/api/routes/<int:route_id>", methods=["DELETE"])
@@ -574,7 +576,7 @@ def api_duplicate_route(route_id):
         return jsonify(ok=False, error="Could not duplicate route. Try again."), 500
     if cloned is None:
         return jsonify(ok=False, error="Not found."), 404
-    return jsonify(ok=True, route=serialize_route_for_client(cloned)), 201
+    return jsonify(ok=True, route=serialize_route_for_client(cloned, user.id)), 201
 
 
 @app.route("/api/my-routes", methods=["GET"])
@@ -584,7 +586,10 @@ def api_list_my_routes():
     if user is None:
         return jsonify(ok=False, error="Not signed in."), 401
     routes = list_routes_for_author(user.id)
-    return jsonify(ok=True, routes=[serialize_route_for_client(route) for route in routes])
+    return jsonify(
+        ok=True,
+        routes=[serialize_route_for_client(route, user.id) for route in routes],
+    )
 
 
 @app.route("/api/saved-route-ids", methods=["GET"])
@@ -608,7 +613,7 @@ def api_list_saved_routes():
     return jsonify(
         ok=True,
         savedIds=saved_ids,
-        routes=[serialize_route_for_client(route) for route in routes],
+        routes=[serialize_route_for_client(route, user.id) for route in routes],
     )
 
 
@@ -642,7 +647,58 @@ def api_list_public_routes():
     if user is None:
         return jsonify(ok=False, error="Not signed in."), 401
     routes = list_public_routes()
-    return jsonify(ok=True, routes=[serialize_route_for_client(route) for route in routes])
+    return jsonify(
+        ok=True,
+        routes=[serialize_route_for_client(route, user.id) for route in routes],
+    )
+
+
+@app.route("/api/routes/<int:route_id>/like", methods=["POST"])
+@login_required
+def api_toggle_route_like(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    try:
+        liked, likes = toggle_route_like(user.id, route_id)
+    except ValueError:
+        return jsonify(ok=False, error="Not found."), 404
+    except Exception:
+        return jsonify(ok=False, error="Could not update like. Try again."), 500
+    return jsonify(ok=True, liked=liked, likes=likes, userLiked=liked)
+
+
+@app.route("/api/routes/<int:route_id>/rating", methods=["POST"])
+@login_required
+def api_set_route_rating(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    if not request.is_json:
+        return jsonify(ok=False, errors={"": "Send JSON (Content-Type: application/json)."}), 400
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify(ok=False, errors={"": "Invalid JSON body."}), 400
+    raw = body.get("rating")
+    if raw is None or raw == "":
+        return jsonify(ok=False, errors={"rating": "Choose a rating from 1 to 5."}), 400
+    try:
+        score = int(raw)
+    except (TypeError, ValueError):
+        return jsonify(ok=False, errors={"rating": "Rating must be a whole number from 1 to 5."}), 400
+    try:
+        avg_rating, user_rating = set_route_rating(user.id, route_id, score)
+    except RouteValidationError as exc:
+        return jsonify(ok=False, errors=exc.errors), 400
+    except ValueError:
+        return jsonify(ok=False, error="Not found."), 404
+    except Exception:
+        return jsonify(ok=False, error="Could not save rating. Try again."), 500
+    return jsonify(
+        ok=True,
+        rating=avg_rating,
+        userRating=user_rating,
+    )
 
 
 @app.route("/api/uploads/place-photo", methods=["POST"])
@@ -805,7 +861,7 @@ def route_detail(route_id):
         if route_obj is None:
             abort(404)
         author_username = route_obj.author.username if route_obj.author else "—"
-        route_payload = serialize_route_for_client(route_obj)
+        route_payload = serialize_route_for_client(route_obj, user.id if user else None)
         route_dict = {
             "id":          str(route_obj.id),
             "title":       route_obj.title,

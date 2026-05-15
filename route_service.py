@@ -9,7 +9,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from models import db, Route, RouteLocation, SavedRoute, User
+from sqlalchemy import func
+
+from models import db, Route, RouteLike, RouteLocation, RouteRating, SavedRoute, User
 
 
 class RouteValidationError(Exception):
@@ -460,18 +462,103 @@ def unsave_route_for_user(user_id: int, route_id: int) -> bool:
     return True
 
 
-def serialize_route_for_client(route: Route) -> dict[str, Any]:
+def count_likes_for_route(route_id: int) -> int:
+    return int(RouteLike.query.filter_by(route_id=int(route_id)).count())
+
+
+def average_rating_for_route(route_id: int) -> Optional[float]:
+    avg = (
+        db.session.query(func.avg(RouteRating.score))
+        .filter(RouteRating.route_id == int(route_id))
+        .scalar()
+    )
+    if avg is None:
+        return None
+    return round(float(avg), 1)
+
+
+def user_has_liked_route(user_id: int, route_id: int) -> bool:
+    return (
+        RouteLike.query.filter_by(user_id=int(user_id), route_id=int(route_id)).first()
+        is not None
+    )
+
+
+def get_user_route_rating(user_id: int, route_id: int) -> Optional[int]:
+    row = RouteRating.query.filter_by(user_id=int(user_id), route_id=int(route_id)).first()
+    return int(row.score) if row is not None else None
+
+
+def toggle_route_like(user_id: int, route_id: int) -> tuple[bool, int]:
+    """
+    Like or unlike a route the user may view.
+
+    Returns (liked, likes_count). Raises ValueError when route is not visible.
+    """
+    uid = _require_author_id(user_id)
+    route = get_route_for_viewer(int(route_id), uid)
+    if route is None:
+        raise ValueError("Route not found.")
+
+    row = RouteLike.query.filter_by(user_id=uid, route_id=route.id).first()
+    if row is not None:
+        db.session.delete(row)
+        liked = False
+    else:
+        db.session.add(RouteLike(user_id=uid, route_id=route.id))
+        liked = True
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return liked, count_likes_for_route(route.id)
+
+
+def set_route_rating(user_id: int, route_id: int, score: int) -> tuple[Optional[float], int]:
+    """
+    Create or update a 1–5 rating for a visible route.
+
+    Returns (average_rating, user_rating). Raises ValueError when route is not visible.
+    """
+    uid = _require_author_id(user_id)
+    route = get_route_for_viewer(int(route_id), uid)
+    if route is None:
+        raise ValueError("Route not found.")
+
+    rating_score = int(score)
+    if rating_score < 1 or rating_score > 5:
+        raise RouteValidationError({"rating": "Rating must be between 1 and 5."})
+
+    row = RouteRating.query.filter_by(user_id=uid, route_id=route.id).first()
+    if row is None:
+        db.session.add(RouteRating(user_id=uid, route_id=route.id, score=rating_score))
+    else:
+        row.score = rating_score
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return average_rating_for_route(route.id), rating_score
+
+
+def serialize_route_for_client(
+    route: Route, viewer_user_id: Optional[int] = None
+) -> dict[str, Any]:
     """
     One JSON-shaped dict for create response, detail, edit prefill, and listings.
 
     Mirrors static/js/pages/create-route.js and seed routes in interactions.js.
+    rating is null when no one has rated; userLiked/userRating when viewer is known.
     """
     locs = sorted(route.locations, key=lambda x: x.stop_order)
     author_username = ""
     if getattr(route, "author", None) is not None:
         author_username = str(route.author.username or "")
 
-    return {
+    rid = int(route.id)
+    payload: dict[str, Any] = {
         "id": route.id,
         "authorId": route.author_id,
         "authorUsername": author_username,
@@ -483,10 +570,8 @@ def serialize_route_for_client(route: Route) -> dict[str, Any]:
         "photoUrl": getattr(route, "cover_photo_url", None) or None,
         "createdAt": _iso_utc_z(route.created_at),
         "updatedAt": _iso_utc_z(route.updated_at),
-        "likes": 0,
-        # mock data for testing
-        "rating": 4.0,
-        # mock data for testing
+        "likes": count_likes_for_route(rid),
+        "rating": average_rating_for_route(rid),
         "locations": [
             {
                 "order": loc.stop_order,
@@ -502,4 +587,9 @@ def serialize_route_for_client(route: Route) -> dict[str, Any]:
             for loc in locs
         ],
     }
-    
+    if viewer_user_id is not None:
+        vid = int(viewer_user_id)
+        payload["userLiked"] = user_has_liked_route(vid, rid)
+        payload["userRating"] = get_user_route_rating(vid, rid)
+    return payload
+
