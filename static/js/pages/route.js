@@ -482,8 +482,6 @@
       }
       C.showToast(`Rating submitted: ${rating}/5.`, "success");
     });
-    $("#btnReport").on("click", () => C.showToast("Report submitted. Thanks for your feedback.", "success"));
-
     $("#btnDeleteRoute").on("click", async () => {
       if (!isOwner) return;
       if (!window.confirm("Delete this route? This action cannot be undone.")) return;

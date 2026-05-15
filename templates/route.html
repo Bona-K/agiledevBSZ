@@ -58,7 +58,7 @@
     </div>
   </section>
 
-  <section class="mt-6 grid gap-6 lg:grid-cols-[1fr,320px]">
+  <section class="mt-6 grid gap-6 lg:grid-cols-[1fr,minmax(280px,400px)]">
     <section>
       <div class="flex items-end justify-between gap-6">
         <div>
@@ -72,25 +72,33 @@
     <aside class="rounded-3xl border border-slate-200 bg-white/70 p-5 shadow-sm backdrop-blur">
       <div class="rounded-2xl border border-slate-200 bg-white p-4">
         <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Route actions</div>
-        <div class="mt-3 grid gap-2">
+        <div class="mt-3 grid gap-3">
           <button id="btnCompleted" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50">
             Mark as completed
           </button>
-          <div class="flex items-center gap-2">
-            <label for="ratingSelect" class="text-sm font-semibold text-slate-700">Rate</label>
-            <select id="ratingSelect" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-900">
-              <option value="">Select</option>
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
+          <div class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4">
+            <div class="text-base font-semibold text-slate-900">Rate this route</div>
+            <p class="mt-1 text-sm text-slate-600">Choose 1–5, then submit.</p>
+            <label for="ratingSelect" class="mt-4 block text-sm font-semibold text-slate-800">Your score</label>
+            <select
+              id="ratingSelect"
+              class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-base font-semibold text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4"
+            >
+              <option value="">Select stars…</option>
+              <option value="1">1 — Poor</option>
+              <option value="2">2 — Fair</option>
+              <option value="3">3 — Good</option>
+              <option value="4">4 — Great</option>
+              <option value="5">5 — Excellent</option>
             </select>
-            <button id="btnSubmitRating" type="button" class="rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm font-semibold text-slate-900 hover:bg-slate-50">Submit</button>
+            <button
+              id="btnSubmitRating"
+              type="button"
+              class="mt-4 w-full rounded-xl bg-slate-900 px-5 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-slate-800"
+            >
+              Submit rating
+            </button>
           </div>
-          <button id="btnReport" type="button" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 shadow-sm hover:bg-rose-100">
-            Report
-          </button>
         </div>
       </div>
 
