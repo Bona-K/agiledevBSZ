@@ -2,13 +2,13 @@
 
 // Page: dashboard.html
 // Features: authenticated home stats, search, popular/latest route sections.
+// Issue #40: Wired to real /api/routes/public feed (server-side filtering).
 (function dashboardPage() {
   const C = window.AppCore;
   if (!C) return;
 
   async function mountDashboard() {
     C.requireAuthOrRedirect();
-    C.seedIfEmpty();
     C.mountNav();
 
     const users = C.readStore(C.STORAGE_KEYS.users, []);
@@ -16,14 +16,12 @@
     const session = C.getSession();
     const boot = window.MYVIBE_BOOTSTRAP || {};
 
-    const mockRoutes = C.readStore(C.STORAGE_KEYS.routes, []);
-    const mockMyCount = mockRoutes.filter((r) => r.authorId === session.userId).length;
+    // Show skeletons immediately
+    showSkeletons("popularRoutes", 3);
+    showSkeletons("latestRoutes", 3);
 
-    let routes = mockRoutes;
-    let statTotal = routes.length;
-    let statMyRoutes = mockMyCount;
-    let statTopTheme = C.topTheme(routes) || "—";
-    let usingServerFeed = false;
+    let routes = [];
+    let statMyRoutes = 0;
 
     if (boot.isAuthenticated) {
       try {
@@ -37,41 +35,21 @@
         routes = normalized;
         statTotal = normalized.length;
         statMyRoutes = Array.isArray(myData?.routes) ? myData.routes.length : 0;
-        statTopTheme = C.topTheme(normalized) || "—";
-        usingServerFeed = true;
       } catch {
-        C.showToast("Could not load live routes — showing saved demo data.", "error");
-        routes = mockRoutes;
-        statTotal = mockRoutes.length;
-        statMyRoutes = mockMyCount;
-        statTopTheme = C.topTheme(mockRoutes) || "—";
-        usingServerFeed = false;
+        C.showToast("Could not load live routes — showing demo data.", "error");
+        C.seedIfEmpty();
+        routes = C.readStore(C.STORAGE_KEYS.routes, []).filter((r) => r.isPublic);
       }
     }
 
-    $("#statRoutes").text(statTotal);
+    // Stats
+    $("#statRoutes").text(routes.length);
     $("#statMyRoutes").text(statMyRoutes);
-    $("#statTopTheme").text(statTopTheme);
-    $("#dashStatRoutesNote").text(usingServerFeed ? "Public routes (server)" : "Using mock data");
-    $("#dashStatThemeNote").text(usingServerFeed ? "From public feed" : "Mock metric");
+    $("#statTopTheme").text(C.topTheme(routes) || "—");
+    $("#dashStatRoutesNote").text("Public routes (live)");
+    $("#dashStatThemeNote").text("From public feed");
 
-    function renderHomeLists() {
-      const q = String($("#homeSearch").val() || "").trim().toLowerCase();
-      let items = routes.filter((r) => r.isPublic);
-      if (q) {
-        items = items.filter((r) => {
-          return (
-            String(r.title || "")
-              .toLowerCase()
-              .includes(q) ||
-            String(r.description || "")
-              .toLowerCase()
-              .includes(q) ||
-            (r.tags || []).some((t) => String(t || "").toLowerCase().includes(q))
-          );
-        });
-      }
-
+    function renderHomeLists(items) {
       const popular = items
         .slice()
         .sort((a, b) => (b.likes || 0) - (a.likes || 0))
@@ -91,8 +69,25 @@
       );
     }
 
-    $("#homeSearch").on("input", renderHomeLists);
-    renderHomeLists();
+    // Initial render
+    renderHomeLists(routes);
+
+    // Search: call API with query, show skeletons while loading
+    let searchTimer = null;
+    $("#homeSearch").on("input", function () {
+      const q = String($(this).val() || "").trim();
+      clearTimeout(searchTimer);
+      showSkeletons("popularRoutes", 3);
+      showSkeletons("latestRoutes", 3);
+      searchTimer = setTimeout(async () => {
+        try {
+          const filtered = await fetchPublicRoutes(q);
+          renderHomeLists(filtered);
+        } catch {
+          renderHomeLists([]);
+        }
+      }, 350);
+    });
   }
 
   $(document).ready(() => {

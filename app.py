@@ -637,11 +637,41 @@ def api_unsave_route(route_id):
 @app.route("/api/routes/public", methods=["GET"])
 @login_required
 def api_list_public_routes():
-    """All public routes for home/explore-style listings (newest first, capped)."""
+    """Public routes for explore/dashboard with optional search, sort, and tag filtering."""
     user = current_user()
     if user is None:
         return jsonify(ok=False, error="Not signed in."), 401
+
+    q       = request.args.get("q",    "").strip().lower()
+    sort    = request.args.get("sort", "latest")
+    tag     = request.args.get("tag",  "").strip().lower()
+    theme   = request.args.get("theme","").strip().lower()
+
     routes = list_public_routes()
+
+    # Filter by keyword (title, description, tags)
+    if q:
+        routes = [
+            r for r in routes
+            if q in r.title.lower()
+            or q in (r.description or "").lower()
+            or any(q in t.lower() for t in (r.tags or []))
+        ]
+
+    # Filter by tag
+    if tag:
+        routes = [r for r in routes if tag in [t.lower() for t in (r.tags or [])]]
+
+    # Filter by theme
+    if theme:
+        routes = [r for r in routes if (r.theme or "").lower() == theme]
+
+    # Sort
+    if sort == "liked":
+        routes = sorted(routes, key=lambda r: 0, reverse=True)  # likes field added later
+    else:
+        routes = sorted(routes, key=lambda r: r.created_at, reverse=True)
+
     return jsonify(ok=True, routes=[serialize_route_for_client(route) for route in routes])
 
 
