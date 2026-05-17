@@ -216,7 +216,7 @@
     $("#btnLike").on("click", () => {
       route.likes = (route.likes || 0) + 1;
       C.writeStore(C.STORAGE_KEYS.routes, routes);
-      C.showToast("Liked.", "success");
+      C.showToast("Liked (mock).", "success");
     });
 
     $("#btnSave").on("click", () => {
@@ -226,7 +226,7 @@
       const arr = Array.from(set);
       C.writeStore(C.STORAGE_KEYS.saved, arr);
       C.updateRouteButtons(route, set);
-      C.showToast(set.has(route.id) ? "Saved." : "Removed from saved.", "success");
+      C.showToast(set.has(route.id) ? "Saved (mock)." : "Removed from saved (mock).", "success");
     });
 
     $("#btnShare").on("click", async () => {
@@ -333,7 +333,7 @@
       C.writeStore(C.STORAGE_KEYS.routes, nextRoutes);
       const nextSaved = (saved || []).filter((id) => id !== route.id);
       C.writeStore(C.STORAGE_KEYS.saved, nextSaved);
-      C.showToast("Route deleted.", "success");
+      C.showToast("Route deleted (mock).", "success");
       window.setTimeout(() => {
         window.location.href = C.appUrl("dashboard");
       }, 350);

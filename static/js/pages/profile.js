@@ -90,7 +90,7 @@
       const nextSaved = C.readStore(C.STORAGE_KEYS.saved, []).filter((id) => id !== routeId);
       C.writeStore(C.STORAGE_KEYS.saved, nextSaved);
       await renderPanels();
-      C.showToast("Route deleted.", "success");
+      C.showToast("Route deleted (mock).", "success");
     });
 
     renderPanels();

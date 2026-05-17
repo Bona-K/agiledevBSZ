@@ -13,7 +13,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
     <!-- Glass-friendly font -->
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="icon" href="{{ url_for('static', filename='myvibe_logo.svg') }}" type="image/svg+xml">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
 
     <!-- Leaflet (interactive maps) -->
@@ -43,7 +42,7 @@
       <div class="mx-auto flex w-[94vw] max-w-[1600px] items-center justify-between px-6 py-4">
 
         <!-- Brand -->
-        <a href="{% if current_user %}{{ url_for('dashboard') }}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
+        <a href="{{ url_for('index') }}" class="flex items-center">
           <img src="{{ url_for('static', filename='myvibe_logo.svg') }}" alt="MyVibe" class="h-10 w-auto" />
         </a>
 
