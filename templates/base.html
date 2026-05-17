@@ -14,6 +14,15 @@
     <!-- Glass-friendly font -->
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+
+    <!-- Leaflet (interactive maps) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
     {% block extra_head %}{% endblock %}
   </head>
   <body data-page="{% block data_page %}{% endblock %}" class="app-bg min-h-screen text-slate-900">
@@ -34,7 +43,7 @@
 
         <!-- Brand -->
         <a href="{{ url_for('index') }}" class="flex items-center">
-          <img src="{{ url_for('static', filename='myvibe_logo.svg') }}" alt="MyVibe" class="site-logo h-10 w-auto" />
+          <img src="{{ url_for('static', filename='myvibe_logo.svg') }}" alt="MyVibe" class="h-10 w-auto" />
         </a>
 
         <!-- Nav links -->

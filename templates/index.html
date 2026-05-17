@@ -23,7 +23,7 @@
 <nav class="landing-nav">
   <div class="landing-nav__inner glass">
     <a href="{{ url_for('index') }}" class="landing-nav__brand">
-      <img src="{{ url_for('static', filename='myvibe_logo.svg') }}" alt="MyVibe" class="landing-nav__logo site-logo" />
+      <img src="{{ url_for('static', filename='myvibe_logo.svg') }}" alt="MyVibe" class="landing-nav__logo" />
     </a>
     <div class="landing-nav__links">
       <a href="#features" class="landing-nav__link">Features</a>
@@ -197,22 +197,22 @@
     </div>
     <div class="vibes__grid">
       <a href="{{ url_for('explore') }}" class="glass vibe-card vibe-card--date">
-        <div class="vibe-card__emoji">🌅</div>
+        <div class="vibe-card__dot" style="background: linear-gradient(135deg, #ec4899, #db2777);"></div>
         <div class="vibe-card__name">Date</div>
         <div class="vibe-card__copy">Slow morning, golden hour, somewhere quiet to finish.</div>
       </a>
       <a href="{{ url_for('explore') }}" class="glass vibe-card vibe-card--picnic">
-        <div class="vibe-card__emoji">🧺</div>
+        <div class="vibe-card__dot" style="background: linear-gradient(135deg, #f59e0b, #d97706);"></div>
         <div class="vibe-card__name">Picnic</div>
         <div class="vibe-card__copy">Bakery stop, blanket spot, the right park, the right people.</div>
       </a>
       <a href="{{ url_for('explore') }}" class="glass vibe-card vibe-card--active">
-        <div class="vibe-card__emoji">🥾</div>
+        <div class="vibe-card__dot" style="background: linear-gradient(135deg, #22c55e, #15803d);"></div>
         <div class="vibe-card__name">Active</div>
         <div class="vibe-card__copy">Trail in the morning, coffee after, ocean swim to finish.</div>
       </a>
       <a href="{{ url_for('explore') }}" class="glass vibe-card vibe-card--gems">
-        <div class="vibe-card__emoji">💎</div>
+        <div class="vibe-card__dot" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"></div>
         <div class="vibe-card__name">Hidden gems</div>
         <div class="vibe-card__copy">The places locals didn't really want you to know about.</div>
       </a>
@@ -321,7 +321,7 @@
 
 <footer class="landing-foot">
   <div class="landing-foot__inner">
-    <img src="{{ url_for('static', filename='myvibe_logo.svg') }}" alt="MyVibe" class="landing-foot__logo site-logo" />
+    <img src="{{ url_for('static', filename='myvibe_logo.svg') }}" alt="MyVibe" class="landing-foot__logo" />
     <div class="landing-foot__copy">© 2026 MyVibe · plan it, share it, go.</div>
   </div>
 </footer>
