@@ -2,28 +2,53 @@
 
 // Page: dashboard.html
 // Features: authenticated home stats, search, popular/latest route sections.
+// Issue #40: Wired to real /api/routes/public feed (server-side filtering).
 (function dashboardPage() {
   const C = window.AppCore;
   if (!C) return;
 
+  function normalizeServerRoute(r) {
+    if (!r || typeof r !== "object") return null;
+    return { ...r, id: String(r.id), authorId: r.authorId };
+  }
+
+  function showSkeletons(containerId, count = 3) {
+    const skeletons = Array(count)
+      .fill(0)
+      .map(
+        () => `
+      <div class="route-card animate-pulse rounded-2xl border border-slate-200 bg-white p-4">
+        <div class="h-4 w-2/3 rounded bg-slate-200 mb-3"></div>
+        <div class="h-3 w-full rounded bg-slate-100 mb-2"></div>
+        <div class="h-3 w-1/2 rounded bg-slate-100"></div>
+      </div>`
+      )
+      .join("");
+    $("#" + containerId).html(skeletons);
+  }
+
+  async function fetchPublicRoutes(q = "") {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    params.set("sort", "latest");
+    const data = await C.fetchJson("api/routes/public?" + params.toString());
+    return Array.isArray(data?.routes) ? data.routes.map(normalizeServerRoute).filter(Boolean) : [];
+  }
+
   async function mountDashboard() {
     C.requireAuthOrRedirect();
-    C.seedIfEmpty();
     C.mountNav();
 
     const users = C.readStore(C.STORAGE_KEYS.users, []);
     let saved = C.readStore(C.STORAGE_KEYS.saved, []);
-    const session = C.getSession();
     const boot = window.MYVIBE_BOOTSTRAP || {};
 
-    const mockRoutes = C.readStore(C.STORAGE_KEYS.routes, []);
-    const mockMyCount = mockRoutes.filter((r) => r.authorId === session.userId).length;
+    // Show skeletons immediately
+    showSkeletons("popularRoutes", 3);
+    showSkeletons("latestRoutes", 3);
 
-    let routes = mockRoutes;
-    let statTotal = routes.length;
-    let statMyRoutes = mockMyCount;
-    let statTopTheme = C.topTheme(routes) || "—";
-    let usingServerFeed = false;
+    let routes = [];
+    let statMyRoutes = 0;
 
     if (boot.isAuthenticated) {
       try {
@@ -31,47 +56,29 @@
           C.fetchJson("api/routes/public"),
           C.fetchJson("api/my-routes"),
         ]);
-        const rawPub = Array.isArray(pubData?.routes) ? pubData.routes : [];
-        const normalized = rawPub.map(C.normalizeServerRoute).filter(Boolean);
-        saved = await C.fetchSavedRouteIds();
-        routes = normalized;
-        statTotal = normalized.length;
+        routes = Array.isArray(pubData?.routes)
+          ? pubData.routes.map(normalizeServerRoute).filter(Boolean)
+          : [];
+        // Fetch saved route IDs (added by feature/edit_account_info)
+        if (typeof C.fetchSavedRouteIds === "function") {
+          saved = await C.fetchSavedRouteIds();
+        }
         statMyRoutes = Array.isArray(myData?.routes) ? myData.routes.length : 0;
-        statTopTheme = C.topTheme(normalized) || "—";
-        usingServerFeed = true;
       } catch {
-        C.showToast("Could not load live routes — showing saved demo data.", "error");
-        routes = mockRoutes;
-        statTotal = mockRoutes.length;
-        statMyRoutes = mockMyCount;
-        statTopTheme = C.topTheme(mockRoutes) || "—";
-        usingServerFeed = false;
+        C.showToast("Could not load live routes — showing demo data.", "error");
+        C.seedIfEmpty();
+        routes = C.readStore(C.STORAGE_KEYS.routes, []).filter((r) => r.isPublic);
       }
     }
 
-    $("#statRoutes").text(statTotal);
+    // Stats
+    $("#statRoutes").text(routes.length);
     $("#statMyRoutes").text(statMyRoutes);
-    $("#statTopTheme").text(statTopTheme);
-    $("#dashStatRoutesNote").text(usingServerFeed ? "Public routes (server)" : "Using mock data");
-    $("#dashStatThemeNote").text(usingServerFeed ? "From public feed" : "Mock metric");
+    $("#statTopTheme").text(C.topTheme(routes) || "—");
+    $("#dashStatRoutesNote").text("Public routes (live)");
+    $("#dashStatThemeNote").text("From public feed");
 
-    function renderHomeLists() {
-      const q = String($("#homeSearch").val() || "").trim().toLowerCase();
-      let items = routes.filter((r) => r.isPublic);
-      if (q) {
-        items = items.filter((r) => {
-          return (
-            String(r.title || "")
-              .toLowerCase()
-              .includes(q) ||
-            String(r.description || "")
-              .toLowerCase()
-              .includes(q) ||
-            (r.tags || []).some((t) => String(t || "").toLowerCase().includes(q))
-          );
-        });
-      }
-
+    function renderHomeLists(items) {
       const popular = items
         .slice()
         .sort((a, b) => (b.likes || 0) - (a.likes || 0))
@@ -91,8 +98,25 @@
       );
     }
 
-    $("#homeSearch").on("input", renderHomeLists);
-    renderHomeLists();
+    // Initial render
+    renderHomeLists(routes);
+
+    // Search: call API with query, show skeletons while loading
+    let searchTimer = null;
+    $("#homeSearch").on("input", function () {
+      const q = String($(this).val() || "").trim();
+      clearTimeout(searchTimer);
+      showSkeletons("popularRoutes", 3);
+      showSkeletons("latestRoutes", 3);
+      searchTimer = setTimeout(async () => {
+        try {
+          const filtered = await fetchPublicRoutes(q);
+          renderHomeLists(filtered);
+        } catch {
+          renderHomeLists([]);
+        }
+      }, 350);
+    });
   }
 
   $(document).ready(() => {

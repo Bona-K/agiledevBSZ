@@ -226,20 +226,15 @@
       $("#routeAuthorLink").attr("href", "#");
     }
     const createdLabel = route.createdAt ? C.formatDate(route.createdAt) : "—";
-    $("#routeMeta").text(
-      `${createdLabel} · ${route.locations.length} stops · ★ ${formatRatingLabel(route.rating)}`
-    );
-    updateLikeButton(route);
-    updateCompletedButton(route);
-    if (route.userRating != null && route.userRating !== "") {
-      $("#ratingSelect").val(String(route.userRating));
-    }
+    $("#routeMeta").text(`${createdLabel} · ${route.locations.length} stops · ${route.rating ?? 4}/5`);
     $("#routeDesc").text(route.description);
     $("#routeTags").html(
       (route.tags || [])
         .map((t) => `<span class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">#${C.escapeHtml(t)}</span>`)
         .join("")
     );
+
+    const RATING_EMOJI = { 1: "😡", 2: "😕", 3: "😐", 4: "🙂", 5: "😍" };
 
     const locHtml = route.locations
       .slice()
@@ -248,16 +243,23 @@
         const photo = loc.photoUrl
           ? `<div class="mt-3"><img src="${C.escapeHtml(loc.photoUrl)}" alt="" class="max-h-48 w-full max-w-md rounded-xl border border-slate-200 object-cover" loading="lazy" /></div>`
           : "";
+        const placeLine = loc.placeName
+          ? `<div class="mt-1 text-xs font-semibold text-pink-700">${C.escapeHtml(loc.placeName)}</div>`
+          : "";
+        const ratingChip = (loc.rating && RATING_EMOJI[loc.rating])
+          ? `<div class="loc-rating-display"><span class="loc-rating-display__emoji">${RATING_EMOJI[loc.rating]}</span><span>${loc.rating}/5</span></div>`
+          : `<div class="rounded-2xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">Stop</div>`;
         return `
           <li class="rounded-2xl border border-slate-200 bg-white/70 p-5 shadow-sm backdrop-blur">
             <div class="flex items-start justify-between gap-4">
               <div class="min-w-0">
                 <div class="text-sm font-semibold text-slate-900">${C.escapeHtml(loc.order)}. ${C.escapeHtml(loc.name)}</div>
+                ${placeLine}
                 <div class="mt-1 text-xs font-semibold text-slate-600">${C.escapeHtml(loc.time)} · Parking ${C.escapeHtml(loc.parking || "—")}</div>
                 <p class="mt-3 text-sm leading-6 text-slate-700">${C.escapeHtml(loc.desc || "")}</p>
                 ${photo}
               </div>
-              <div class="rounded-2xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">Stop</div>
+              ${ratingChip}
             </div>
           </li>
         `;

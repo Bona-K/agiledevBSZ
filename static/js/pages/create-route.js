@@ -297,16 +297,18 @@
       if (typeof d.description === "string") $("#rtDesc").val(d.description);
       if (typeof d.isPublic === "boolean") $("#rtPublic").prop("checked", d.isPublic);
       if (Array.isArray(d.locations) && d.locations.length) {
-        locations = d.locations
-          .map((loc, i) => ({
-            order: i + 1,
-            name: loc.name || "",
-            time: loc.time || "",
-            desc: loc.desc || loc.description || "",
-            parking: loc.parking || "unknown",
-            photoUrl: loc.photoUrl || null,
-          }))
-          .filter((loc) => isValidStopName(loc.name) && String(loc.time || "").trim());
+        locations = d.locations.map((loc, i) => ({
+          order: i + 1,
+          name: loc.name || "",
+          placeName: loc.placeName || null,
+          time: loc.time || "",
+          desc: loc.desc || loc.description || "",
+          parking: loc.parking || "unknown",
+          photoUrl: loc.photoUrl || null,
+          lat: loc.lat != null ? loc.lat : null,
+          lng: loc.lng != null ? loc.lng : null,
+          rating: loc.rating != null ? loc.rating : null,
+        }));
         renumber();
       }
       if (typeof d.routeCoverRemoved === "boolean") routeCoverRemoved = d.routeCoverRemoved;
@@ -412,11 +414,32 @@
         $("#locPhotoPreviewWrap").removeClass("hidden");
         $("#locPhotoStatus").text("");
       }
+
+      // Prep location-picker (map + autocomplete + rating).
+      if (window.MYVIBE_LOC_PICKER) {
+        if (modeName === "edit") {
+          window.MYVIBE_LOC_PICKER.prefill({
+            placeName: source.placeName || null,
+            lat: source.lat != null ? source.lat : null,
+            lng: source.lng != null ? source.lng : null,
+            rating: source.rating || null,
+          });
+        } else {
+          window.MYVIBE_LOC_PICKER.reset();
+        }
+      }
+
       $("#locationModal").removeClass("hidden").addClass("flex");
+
+      // The mini-map needs to know its real dimensions once the modal is visible.
+      if (window.MYVIBE_LOC_PICKER) {
+        setTimeout(function () { window.MYVIBE_LOC_PICKER.open(); }, 50);
+      }
     }
 
     function closeLocModal() {
       $("#locationModal").removeClass("flex").addClass("hidden");
+      if (window.MYVIBE_LOC_PICKER) window.MYVIBE_LOC_PICKER.close();
     }
 
     async function uploadPlacePhoto(file) {
@@ -503,12 +526,14 @@
           return {
             order: i + 1,
             name: String(l.name || "").trim(),
+            placeName: l.placeName ? String(l.placeName).trim() : null,
             time: String(l.time || "").trim(),
             desc: String(l.desc || "").trim(),
             parking: String(l.parking || "unknown").trim() || "unknown",
             photoUrl: l.photoUrl || null,
             lat,
             lng,
+            rating: (l.rating != null && Number.isFinite(Number(l.rating))) ? Number(l.rating) : null,
           };
         }),
       };
@@ -611,8 +636,8 @@
       const desc = String($("#locDesc").val() || "").trim();
       const parking = String($("#locParking").val() || "unknown");
       let modalOk = true;
-      if (!isValidStopName(name)) {
-        $("#errLocName").removeClass("hidden").text("Location name is required.");
+      if (!name) {
+        $("#errLocName").removeClass("hidden").text("Event name is required.");
         $("#locName").addClass("border-rose-300");
         modalOk = false;
       }
@@ -627,16 +652,28 @@
         ? null
         : locPendingPhotoUrl || (locModalMode === "edit" ? locations[editingLocIndex]?.photoUrl : null) || null;
 
+      // Pull picker state (place name, lat/lng, smiley rating). All optional.
+      const pickerState = (window.MYVIBE_LOC_PICKER && window.MYVIBE_LOC_PICKER.readState())
+        || { placeName: null, lat: null, lng: null, rating: null };
+
       const prev = locModalMode === "edit" ? locations[editingLocIndex] : null;
       const loc = {
         order: locModalMode === "edit" && prev ? prev.order : locations.length + 1,
         name,
+        placeName: pickerState.placeName || (prev && prev.placeName) || null,
         time,
         desc: desc || "No description.",
         parking,
         photoUrl,
-        lat: prev && prev.lat != null && prev.lat !== "" ? prev.lat : null,
-        lng: prev && prev.lng != null && prev.lng !== "" ? prev.lng : null,
+        lat: pickerState.lat != null
+          ? pickerState.lat
+          : (prev && prev.lat != null && prev.lat !== "" ? prev.lat : null),
+        lng: pickerState.lng != null
+          ? pickerState.lng
+          : (prev && prev.lng != null && prev.lng !== "" ? prev.lng : null),
+        rating: pickerState.rating != null
+          ? pickerState.rating
+          : (prev && prev.rating != null ? prev.rating : null),
       };
 
       const wasEdit = locModalMode === "edit" && editingLocIndex >= 0;
