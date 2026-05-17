@@ -40,7 +40,7 @@
     C.mountNav();
 
     const users = C.readStore(C.STORAGE_KEYS.users, []);
-    const saved = C.readStore(C.STORAGE_KEYS.saved, []);
+    let saved = C.readStore(C.STORAGE_KEYS.saved, []);
     const boot = window.MYVIBE_BOOTSTRAP || {};
 
     // Show skeletons immediately
@@ -59,6 +59,10 @@
         routes = Array.isArray(pubData?.routes)
           ? pubData.routes.map(normalizeServerRoute).filter(Boolean)
           : [];
+        // Fetch saved route IDs (added by feature/edit_account_info)
+        if (typeof C.fetchSavedRouteIds === "function") {
+          saved = await C.fetchSavedRouteIds();
+        }
         statMyRoutes = Array.isArray(myData?.routes) ? myData.routes.length : 0;
       } catch {
         C.showToast("Could not load live routes — showing demo data.", "error");
