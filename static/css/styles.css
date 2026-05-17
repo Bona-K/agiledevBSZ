@@ -1140,3 +1140,113 @@ body.app-bg:not([data-page="home"]) {
 .leaflet-bar a:first-child { border-top-left-radius: 10px !important; border-top-right-radius: 10px !important; }
 .leaflet-bar a:last-child { border-bottom-left-radius: 10px !important; border-bottom-right-radius: 10px !important; }
 .leaflet-bar a:hover { background: rgba(255, 255, 255, 1) !important; color: #ec4899 !important; }
+
+/* ============================================================
+   LOCATION PICKER (modal: search + map + smiley rating)
+   ============================================================ */
+
+/* Mini map inside the create-location modal */
+.loc-picker {
+  width: 100%;
+  height: 280px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 12px rgba(15, 23, 42, 0.06);
+  background: rgba(248, 250, 252, 0.6);
+}
+.loc-picker .leaflet-control-attribution { font-size: 9px !important; }
+
+/* Autocomplete dropdown that appears under the place search input */
+.loc-suggest {
+  position: absolute;
+  left: 0; right: 0; top: 100%;
+  margin-top: 6px;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.96);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.loc-suggest__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #0f172a;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+}
+.loc-suggest__item:last-child { border-bottom: none; }
+.loc-suggest__item:hover,
+.loc-suggest__item.is-active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(236, 72, 153, 0.08));
+  color: #be185d;
+}
+.loc-suggest__name { font-weight: 700; }
+.loc-suggest__sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+.loc-suggest__empty,
+.loc-suggest__loading {
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+}
+
+/* Smiley rating selector */
+.loc-rating {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.loc-rating__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  font-size: 26px;
+  background: rgba(255, 255, 255, 0.65);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), background 180ms, box-shadow 180ms;
+  filter: grayscale(40%);
+  opacity: 0.7;
+}
+.loc-rating__btn:hover {
+  transform: translateY(-2px) scale(1.08);
+  filter: grayscale(0);
+  opacity: 1;
+}
+.loc-rating__btn.is-active {
+  background: var(--brand-gradient-135, linear-gradient(135deg, #f59e0b, #ec4899, #8b5cf6));
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 6px 18px rgba(236, 72, 153, 0.35);
+  filter: grayscale(0);
+  opacity: 1;
+  transform: scale(1.06);
+}
+
+/* Smiley shown inline on route detail timeline / map popup */
+.loc-rating-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(236, 72, 153, 0.08);
+  font-size: 14px;
+  font-weight: 700;
+  color: #be185d;
+}
+.loc-rating-display__emoji { font-size: 16px; line-height: 1; }

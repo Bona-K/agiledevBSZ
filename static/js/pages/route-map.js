@@ -131,6 +131,8 @@
       return;
     }
 
+    var RATING_EMOJI = { 1: "😡", 2: "😕", 3: "😐", 4: "🙂", 5: "😍" };
+
     // Drop markers + collect points for bounds + polyline.
     var latlngs = [];
     placed.forEach(function (loc, i) {
@@ -140,12 +142,20 @@
 
       var marker = L.marker([lat, lng], { icon: makeNumberedIcon(L, displayNum) }).addTo(map);
 
+      var placeLine = loc.placeName
+        ? '<div class="map-popup__meta" style="color:#be185d;font-weight:700;">📍 ' + escapeHtml(loc.placeName) + "</div>"
+        : "";
+      var ratingLine = (loc.rating && RATING_EMOJI[loc.rating])
+        ? '<div class="map-popup__meta" style="margin-top:4px;">' + RATING_EMOJI[loc.rating] + " " + escapeHtml(loc.rating) + "/5</div>"
+        : "";
       var popup =
         '<div class="map-popup__title">' + escapeHtml(loc.name || "Stop " + displayNum) + "</div>" +
+        placeLine +
         '<div class="map-popup__meta">' +
         (loc.time ? escapeHtml(loc.time) + " · " : "") +
         "Stop " + escapeHtml(displayNum) +
-        "</div>";
+        "</div>" +
+        ratingLine;
       marker.bindPopup(popup);
 
       latlngs.push([lat, lng]);
