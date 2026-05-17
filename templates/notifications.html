@@ -4,11 +4,11 @@
 {% block data_page %}notifications{% endblock %}
 
 {% block content %}
-<main class="mx-auto w-[94vw] max-w-[1600px] px-6 py-10">
+<main class="relative z-[1] mx-auto w-[94vw] max-w-[1600px] px-6 py-10">
 
   <!-- Page header -->
-  <section class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <div>
+  <section class="glass-card flex flex-col gap-4 p-7 sm:flex-row sm:items-center sm:justify-between relative">
+    <div class="relative z-[1]">
       <div class="text-sm font-semibold text-slate-600">Activity</div>
       <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Notifications</h1>
       <p class="mt-2 text-sm text-slate-600">
@@ -22,9 +22,7 @@
 
     <!-- Mark all as read button -->
     {% if notifications_with_sender %}
-    <button id="btnMarkAllRead"
-            type="button"
-            class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50">
+    <button id="btnMarkAllRead" type="button" class="btn-glass-ghost !py-2 !text-sm relative z-[1]">
       Mark all as read
     </button>
     {% endif %}
@@ -39,28 +37,41 @@
       {% set sender = item.sender %}
 
       <li id="notif-{{ n.id }}"
-          class="relative rounded-2xl border shadow-sm transition
+          class="relative rounded-2xl border transition backdrop-blur
                  {% if not n.is_read %}
-                   border-sky-200 bg-white
+                   border-sky-200/70 bg-white/75
                  {% else %}
-                   border-slate-200 bg-slate-50
-                 {% endif %}">
+                   border-white/50 bg-white/45
+                 {% endif %}"
+          style="box-shadow: 0 4px 18px rgba(31, 38, 135, 0.06), inset 0 1px 0 rgba(255,255,255,0.55);">
         <div class="flex items-start gap-4 p-4">
 
           <!-- Type icon -->
-          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl
-                      {% if n.type == 'follow' %}bg-violet-100 text-violet-700
-                      {% elif n.type == 'like' %}bg-rose-100 text-rose-600
-                      {% elif n.type == 'comment' %}bg-sky-100 text-sky-700
-                      {% else %}bg-slate-100 text-slate-600{% endif %}">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm
+                      {% if n.type == 'follow' %}bg-violet-100/80 text-violet-700
+                      {% elif n.type == 'like' %}bg-rose-100/80 text-rose-600
+                      {% elif n.type == 'comment' %}bg-sky-100/80 text-sky-700
+                      {% else %}bg-slate-100/80 text-slate-600{% endif %}">
             {% if n.type == 'follow' %}
-              👤
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="8.5" cy="7" r="4"/>
+                <line x1="20" y1="8" x2="20" y2="14"/>
+                <line x1="23" y1="11" x2="17" y2="11"/>
+              </svg>
             {% elif n.type == 'like' %}
-              ❤️
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
             {% elif n.type == 'comment' %}
-              💬
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
             {% else %}
-              🔔
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
             {% endif %}
           </div>
 
@@ -87,14 +98,14 @@
 
           <!-- Unread indicator dot -->
           {% if not n.is_read %}
-          <div class="mt-1 h-2 w-2 shrink-0 rounded-full bg-sky-500"></div>
+          <div class="mt-1 h-2 w-2 shrink-0 rounded-full bg-sky-500 shadow-[0_0_0_3px_rgba(56,189,248,0.25)]"></div>
           {% endif %}
 
           <!-- Mark as read button (single) -->
           {% if not n.is_read %}
           <button type="button"
                   data-notif-id="{{ n.id }}"
-                  class="btnMarkRead shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                  class="btnMarkRead shrink-0 rounded-lg border border-white/70 bg-white/70 backdrop-blur px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-white/90 transition">
             Mark read
           </button>
           {% endif %}
@@ -103,7 +114,7 @@
 
         <!-- Left border accent for unread -->
         {% if not n.is_read %}
-        <div class="absolute left-0 top-0 h-full w-1 rounded-l-2xl bg-sky-400"></div>
+        <div class="absolute left-0 top-0 h-full w-1 rounded-l-2xl bg-gradient-to-b from-sky-400 to-violet-400"></div>
         {% endif %}
       </li>
 
@@ -112,16 +123,22 @@
 
     {% else %}
     <!-- Empty state -->
-    <div class="rounded-3xl border border-slate-200 bg-white/70 p-12 text-center shadow-sm backdrop-blur">
-      <div class="text-4xl">🔔</div>
-      <div class="mt-4 text-base font-semibold text-slate-700">No notifications yet.</div>
-      <p class="mt-2 text-sm text-slate-500">
-        When someone follows you or interacts with your routes, it will show up here.
-      </p>
-      <a href="{{ url_for('explore') }}"
-         class="mt-6 inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800">
-        Explore routes
-      </a>
+    <div class="glass-card p-12 text-center relative">
+      <div class="relative z-[1]">
+        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full text-slate-500" style="background: rgba(15, 23, 42, 0.06);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+        </div>
+        <div class="mt-4 text-base font-semibold text-slate-700">No notifications yet.</div>
+        <p class="mt-2 text-sm text-slate-500">
+          When someone follows you or interacts with your routes, it will show up here.
+        </p>
+        <a href="{{ url_for('explore') }}" class="btn-glass-primary mt-6">
+          Explore routes
+        </a>
+      </div>
     </div>
     {% endif %}
   </section>
@@ -144,11 +161,10 @@
         });
         const data = await res.json();
         if (data.ok) {
-          // Update the notification card style without a full reload
           const card = document.getElementById("notif-" + notifId);
           if (card) {
-            card.classList.remove("border-sky-200", "bg-white");
-            card.classList.add("border-slate-200", "bg-slate-50");
+            card.classList.remove("border-sky-200/70", "bg-white/75");
+            card.classList.add("border-white/50", "bg-white/45");
             btn.remove();
             const dot = card.querySelector(".bg-sky-500");
             if (dot) dot.remove();
@@ -177,7 +193,6 @@
         });
         const data = await res.json();
         if (data.ok) {
-          // Reload the page to reflect all-read state
           window.location.reload();
         }
       } catch (err) {

@@ -11,7 +11,7 @@
     saved: "mv_saved_route_ids",
     locations: "mv_saved_locations",
   };
-  const MOCK_VERSION = 3;
+  const MOCK_VERSION = 4;
 
   /** One shared cover for cards when no custom image or when the image fails to load. */
   const ROUTE_CARD_DEFAULT_COVER =
@@ -158,9 +158,9 @@
           rating: 4.6,
           createdAt: "2026-03-22T09:20:00.000Z",
           locations: [
-            { order: 1, time: "10:30", name: "Cafe stop", desc: "Easy chat to set the vibe.", parking: "<500m" },
-            { order: 2, time: "12:00", name: "Riverside walk", desc: "Slow walk by the river and take photos.", parking: "<1km" },
-            { order: 3, time: "18:10", name: "Sunset lookout", desc: "Arrive 10 minutes early for golden hour.", parking: "<500m" },
+            { order: 1, time: "10:30", name: "Cafe stop", desc: "Easy chat to set the vibe.", parking: "<500m", lat: -31.9523, lng: 115.8613 },
+            { order: 2, time: "12:00", name: "Riverside walk", desc: "Slow walk by the river and take photos.", parking: "<1km", lat: -31.9587, lng: 115.8541 },
+            { order: 3, time: "18:10", name: "Sunset lookout", desc: "Arrive 10 minutes early for golden hour.", parking: "<500m", lat: -31.9614, lng: 115.8472 },
           ],
         },
         {
@@ -175,8 +175,8 @@
           rating: 4.2,
           createdAt: "2026-03-23T14:05:00.000Z",
           locations: [
-            { order: 1, time: "11:00", name: "Groceries", desc: "Buy drinks and snacks.", parking: "<500m" },
-            { order: 2, time: "12:00", name: "Big park", desc: "Bring a picnic mat and find shade.", parking: "<1km" },
+            { order: 1, time: "11:00", name: "Groceries", desc: "Buy drinks and snacks.", parking: "<500m", lat: -27.4698, lng: 153.0251 },
+            { order: 2, time: "12:00", name: "Big park", desc: "Bring a picnic mat and find shade.", parking: "<1km", lat: -27.4762, lng: 153.0297 },
           ],
         },
         {
@@ -191,8 +191,8 @@
           rating: 4.8,
           createdAt: "2026-03-24T08:40:00.000Z",
           locations: [
-            { order: 1, time: "15:30", name: "Quiet viewpoint", desc: "Can be windy, bring a jacket.", parking: "<500m" },
-            { order: 2, time: "17:45", name: "Small cafe", desc: "Warm drink to end the day.", parking: "<1km" },
+            { order: 1, time: "15:30", name: "Quiet viewpoint", desc: "Can be windy, bring a jacket.", parking: "<500m", lat: -33.8568, lng: 151.2153 },
+            { order: 2, time: "17:45", name: "Small cafe", desc: "Warm drink to end the day.", parking: "<1km", lat: -33.8688, lng: 151.2093 },
           ],
         },
       ]);
@@ -353,29 +353,28 @@
   }
 
   function themeVisual(themeKey) {
-    if (themeKey === "date") return { thumbBg: "#fce7f3", thumbBorder: "#f9a8d4", thumbText: "#9d174d", emoji: "🌙" };
-    if (themeKey === "picnic") return { thumbBg: "#fef3c7", thumbBorder: "#fcd34d", thumbText: "#92400e", emoji: "☕" };
-    if (themeKey === "active") return { thumbBg: "#dcfce7", thumbBorder: "#86efac", thumbText: "#14532d", emoji: "🎒" };
-    return { thumbBg: "#ede9fe", thumbBorder: "#c4b5fd", thumbText: "#4c1d95", emoji: "🎨" };
+    // Each theme gets a distinct gradient pair (instead of an emoji glyph).
+    if (themeKey === "date")
+      return { thumbBg: "#fce7f3", thumbBorder: "#f9a8d4", thumbText: "#9d174d", dot: "linear-gradient(135deg, #ec4899, #db2777)" };
+    if (themeKey === "picnic")
+      return { thumbBg: "#fef3c7", thumbBorder: "#fcd34d", thumbText: "#92400e", dot: "linear-gradient(135deg, #f59e0b, #d97706)" };
+    if (themeKey === "active")
+      return { thumbBg: "#dcfce7", thumbBorder: "#86efac", thumbText: "#14532d", dot: "linear-gradient(135deg, #22c55e, #15803d)" };
+    return { thumbBg: "#ede9fe", thumbBorder: "#c4b5fd", thumbText: "#4c1d95", dot: "linear-gradient(135deg, #8b5cf6, #6d28d9)" };
   }
 
   function routeBadge(route) {
     const now = Date.now();
     const created = new Date(route.createdAt).getTime();
     const isNew = Number.isFinite(created) && now - created < 1000 * 60 * 60 * 24 * 4;
-    if (isNew) return { text: "🆕 new", bg: "#dcfce7", color: "#14532d" };
-    if ((route.likes || 0) >= 25) return { text: "🔥 hot", bg: "#fef3c7", color: "#92400e" };
-    return { text: "⭐ staff pick", bg: "#ede9fe", color: "#4c1d95" };
+    if (isNew) return { text: "new", bg: "#dcfce7", color: "#14532d" };
+    if ((route.likes || 0) >= 25) return { text: "hot", bg: "#fef3c7", color: "#92400e" };
+    return { text: "staff pick", bg: "#ede9fe", color: "#4c1d95" };
   }
 
   function tagWithEmoji(tag) {
-    const t = String(tag || "").toLowerCase();
-    if (t.includes("cafe") || t.includes("coffee")) return `☕ ${t}`;
-    if (t.includes("sunset")) return `🌇 ${t}`;
-    if (t.includes("beach")) return `🌊 ${t}`;
-    if (t.includes("date")) return `🌙 ${t}`;
-    if (t.includes("cheap") || t.includes("budget")) return `💸 ${t}`;
-    return `✨ ${t}`;
+    // Legacy name kept for callers; no emoji prefix anymore — just the clean tag.
+    return String(tag || "").toLowerCase();
   }
 
   function userAvatarTone(user) {
@@ -488,13 +487,13 @@
                    <div class="absolute left-3 top-3 rounded-full px-2 py-1 text-[11px] font-medium" style="background:${badge.bg};color:${badge.color};">${badge.text}</div>
                  </div>`
               : `<div class="route-thumb relative flex items-center justify-center" style="background:${visual.thumbBg};border-color:${visual.thumbBorder};color:${visual.thumbText};">
-                   <div class="text-5xl leading-none">${visual.emoji}</div>
+                   <div class="route-thumb__dot" style="background:${visual.dot};"></div>
                    <div class="absolute left-3 top-3 rounded-full px-2 py-1 text-[11px] font-medium" style="background:${badge.bg};color:${badge.color};">${badge.text}</div>
                  </div>`
           }
           <div class="mt-3">
             <div class="text-[13px] font-semibold text-slate-900">${escapeHtml(route.title)}</div>
-            <div class="mt-1 text-xs text-slate-500">📍 ${stops} stops · ⏱ ${estimateHours(route)} hrs</div>
+            <div class="mt-1 text-xs text-slate-500">${stops} stops · ${estimateHours(route)} hrs</div>
             <div class="mt-3 flex flex-wrap gap-2">${tagHtml}</div>
           </div>
         </a>
@@ -535,7 +534,7 @@
         <a href="${routeDetailUrl(route.id)}" class="block">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
-              <div class="text-xs font-semibold text-slate-600">${escapeHtml(route.theme)} · ★ ${escapeHtml(route.rating)}</div>
+              <div class="text-xs font-semibold text-slate-600">${escapeHtml(route.theme)} · ${escapeHtml(route.rating)}/5</div>
               <div class="mt-1 line-clamp-2 text-sm font-semibold text-slate-900 hover:text-sky-800">${escapeHtml(route.title)}</div>
               <div class="mt-2 text-xs text-slate-600">by ${escapeHtml(authorName)} · ${escapeHtml(formatDate(route.createdAt))}</div>
             </div>
@@ -544,7 +543,7 @@
           <p class="mt-3 line-clamp-2 text-sm leading-6 text-slate-700">${escapeHtml(route.description)}</p>
           <div class="mt-4 flex flex-wrap gap-2">${tagHtml}</div>
           <div class="mt-4 flex items-center justify-between text-xs font-semibold text-slate-600">
-            <span>❤ ${escapeHtml(route.likes || 0)}</span>
+            <span>${escapeHtml(route.likes || 0)} likes</span>
             <span>${escapeHtml(route.locations?.length || 0)} stops</span>
           </div>
         </a>
@@ -561,8 +560,11 @@
   }
 
   function updateRouteButtons(route, savedSet) {
-    const isSaved = savedSet.has(String(route.id));
-    $("#btnSave").text(isSaved ? "🔖 Saved" : "🔖 Save");
+    const isSaved = savedSet.has(route.id);
+    // Update just the text label so we don't wipe the inline SVG icon.
+    const $saveLabel = $("#btnSave span").last();
+    if ($saveLabel.length) $saveLabel.text(isSaved ? "Saved" : "Save");
+    else $("#btnSave").text(isSaved ? "Saved" : "Save");
   }
 
   global.AppCore = {
@@ -599,5 +601,19 @@
 
   $(document).ready(() => {
     bindRouteLikeInteractions();
+    // Logo click routing: when clicked from landing, login, or signup -> landing page;
+    // from any other authenticated page -> dashboard.
+    $("body")
+      .off("click.siteLogo")
+      .on("click.siteLogo", ".site-logo", function (e) {
+        e.preventDefault();
+        const page = String(document.body.dataset.page || "").trim();
+        const landingPages = ["home", "login", "signup"];
+        if (landingPages.includes(page)) {
+          global.location.href = appUrl("");
+        } else {
+          global.location.href = appUrl("dashboard");
+        }
+      });
   });
 })(window);
