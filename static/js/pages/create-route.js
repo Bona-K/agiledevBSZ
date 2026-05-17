@@ -793,7 +793,7 @@
           .slice(0, 8);
         editingRoute.title = title;
         editingRoute.theme = theme;
-        editingRoute.description = desc || "No description yet (mock).";
+        editingRoute.description = desc || "No description yet.";
         editingRoute.tags = tags;
         editingRoute.isPublic = isPublic;
         editingRoute.photoUrl = currentRouteCoverPhotoUrl();
@@ -801,7 +801,7 @@
         C.writeStore(C.STORAGE_KEYS.routes, routes);
         detachEditGuards();
         editDirty = false;
-        C.showToast("Route updated (mock).", "success");
+        C.showToast("Route updated.", "success");
         window.setTimeout(() => {
           window.location.href = C.routeDetailUrl(editingRoute.id);
         }, 350);
