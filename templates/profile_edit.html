@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Profile · MyVibe{% endblock %}
+{% block data_page %}profile-edit{% endblock %}
+
+{% block content %}
+<main class="relative z-[1] mx-auto w-[94vw] max-w-[860px] px-6 py-10">
+
+  <a href="{{ url_for('profile') }}"
+     class="text-sm font-semibold text-slate-600 hover:text-slate-900">← Back to Profile</a>
+
+  <h1 class="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Edit profile</h1>
+  <p class="mt-2 text-sm text-slate-600">
+    Update your display name, bio, and avatar. Your username (<span class="font-semibold">@{{ user.username }}</span>) is permanent.
+  </p>
+
+  {# Server-side error #}
+  {% if error %}
+  <div class="mt-5 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50/85 p-4 backdrop-blur" role="alert">
+    <svg class="mt-0.5 h-4 w-4 shrink-0 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+    </svg>
+    <p class="text-sm font-medium text-rose-700">{{ error }}</p>
+  </div>
+  {% endif %}
+
+  {# Server-side success #}
+  {% if success %}
+  <div class="mt-5 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/85 p-4 backdrop-blur" role="status">
+    <svg class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+    </svg>
+    <p class="text-sm font-medium text-emerald-700">{{ success }}</p>
+  </div>
+  {% endif %}
+
+  <form
+    method="POST"
+    action="{{ url_for('profile_edit') }}"
+    enctype="multipart/form-data"
+    class="glass-card mt-6 p-6 relative"
+  >
+    <div class="relative z-[1] space-y-6">
+
+      <!-- Avatar -->
+      <div>
+        <div class="text-sm font-semibold text-slate-900">Avatar</div>
+        <p class="mt-1 text-xs text-slate-500">PNG, JPG, GIF, or WebP. Max 4 MB.</p>
+
+        <div class="mt-3 flex items-center gap-4">
+          <div id="avatarPreview"
+               class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 via-pink-500 to-violet-500 text-xl font-semibold text-white shadow-lg">
+            {% if user.profile_img %}
+              <img src="{{ url_for('static', filename=user.profile_img) }}" alt="" class="h-full w-full object-cover" />
+            {% else %}
+              {{ (user.display_name or user.username)[0]|upper }}
+            {% endif %}
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label class="btn-glass-ghost !py-2 !text-sm cursor-pointer inline-block">
+              Choose image
+              <input id="avatarInput" type="file" name="avatar" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" />
+            </label>
+
+            {% if user.profile_img %}
+            <label class="inline-flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" name="remove_avatar" value="1" class="rounded border-slate-300" />
+              Remove current avatar
+            </label>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-white/40"></div>
+
+      <!-- Display name -->
+      <div>
+        <label for="display_name" class="text-sm font-semibold text-slate-900">Display name</label>
+        <p class="mt-1 text-xs text-slate-500">Shown on your profile and routes. Leave blank to fall back to your username.</p>
+        <input
+          id="display_name"
+          name="display_name"
+          type="text"
+          maxlength="120"
+          value="{{ user.display_name or '' }}"
+          placeholder="{{ user.username }}"
+          class="mt-2 w-full rounded-xl border border-slate-200 bg-white/75 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+        />
+      </div>
+
+      <!-- Bio -->
+      <div>
+        <label for="bio" class="text-sm font-semibold text-slate-900">Bio</label>
+        <p class="mt-1 text-xs text-slate-500">A short description that appears on your profile. Up to 1000 characters.</p>
+        <textarea
+          id="bio"
+          name="bio"
+          rows="4"
+          maxlength="1000"
+          placeholder="Tell people a little about yourself…"
+          class="mt-2 w-full rounded-xl border border-slate-200 bg-white/75 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+        >{{ user.bio or '' }}</textarea>
+        <div class="mt-1 text-right text-[11px] text-slate-400">
+          <span id="bioCount">{{ (user.bio or '')|length }}</span> / 1000
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <a href="{{ url_for('profile') }}" class="btn-glass-ghost text-center">Cancel</a>
+        <button type="submit" class="btn-glass-primary">Save changes</button>
+      </div>
+    </div>
+  </form>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/profile-edit.js') }}"></script>
+{% endblock %}
