@@ -14,12 +14,16 @@
       <div class="glass-card p-6 relative">
         <div class="relative z-[1]">
           <div class="flex items-start gap-4">
-            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 via-pink-500 to-violet-500 text-base font-semibold text-white shadow-lg">
-              {{ profile_user.username[0]|upper }}
+            <div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 via-pink-500 to-violet-500 text-base font-semibold text-white shadow-lg">
+              {% if profile_user.profile_img %}
+                <img src="{{ url_for('static', filename=profile_user.profile_img) }}" alt="" class="h-full w-full object-cover" />
+              {% else %}
+                {{ (profile_user.display_name or profile_user.username)[0]|upper }}
+              {% endif %}
             </div>
             <div class="min-w-0">
               <div class="truncate text-lg font-semibold text-slate-900">
-                {{ profile_user.username }}
+                {{ profile_user.display_name or profile_user.username }}
               </div>
               <div class="truncate text-sm font-semibold text-slate-600">
                 @{{ profile_user.username }}
@@ -43,9 +47,9 @@
             </div>
           </div>
 
-          <!-- Follow / Unfollow button -->
+          <!-- Follow / Unfollow + Message buttons -->
           {% if not is_own_profile %}
-          <div class="mt-5">
+          <div class="mt-5 space-y-2">
             {% if is_following %}
             <button
               id="followBtn"
@@ -63,6 +67,24 @@
               class="btn-glass-primary w-full"
             >
               Follow
+            </button>
+            {% endif %}
+
+            {% if is_mutual %}
+            <a
+              href="{{ url_for('conversation', username=profile_user.username) }}"
+              class="btn-glass-solid w-full text-center inline-block"
+            >
+              Message
+            </a>
+            {% else %}
+            <button
+              type="button"
+              disabled
+              title="You can only message users you mutually follow"
+              class="btn-glass-ghost w-full !cursor-not-allowed !opacity-60"
+            >
+              Message (mutual follow required)
             </button>
             {% endif %}
           </div>

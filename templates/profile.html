@@ -16,29 +16,41 @@
           <div class="flex items-start gap-4">
             <div
               id="profileInitials"
-              class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 via-pink-500 to-violet-500 text-base font-semibold text-white shadow-lg"
+              class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 via-pink-500 to-violet-500 text-base font-semibold text-white shadow-lg"
             >
-              {{ username[0]|upper if username else '—' }}
+              {% if profile_img %}
+                <img src="{{ url_for('static', filename=profile_img) }}" alt="" class="h-full w-full object-cover" />
+              {% else %}
+                {{ display_name[0]|upper if display_name else (username[0]|upper if username else '—') }}
+              {% endif %}
             </div>
             <div class="min-w-0">
               <div id="profileName" class="truncate text-lg font-semibold text-slate-900">
-                {{ username or '—' }}
+                {{ display_name or username or '—' }}
               </div>
               <div id="profileUsername" class="truncate text-sm font-semibold text-slate-600">
                 @{{ username or '—' }}
               </div>
               <div class="mt-2 text-xs font-semibold text-slate-500">
-                Joined: <span id="profileJoined">—</span>
+                Joined:
+                <span id="profileJoined">
+                  {% if joined_at %}{{ joined_at.strftime('%b %Y') }}{% else %}—{% endif %}
+                </span>
               </div>
             </div>
           </div>
 
           <div class="mt-5 rounded-2xl bg-white/50 border border-white/60 backdrop-blur p-4">
             <div class="text-xs font-semibold text-slate-600">Bio</div>
-            <div id="profileBio" class="mt-2 text-sm leading-6 text-slate-700">—</div>
+            <div id="profileBio" class="mt-2 text-sm leading-6 text-slate-700">
+              {{ bio or 'No bio yet. Tell people about yourself.' }}
+            </div>
           </div>
 
           <div class="mt-5 flex flex-col gap-2">
+            <a href="{{ url_for('profile_edit') }}" class="btn-glass-primary w-full text-center">
+              Edit profile
+            </a>
             <a href="{{ url_for('dashboard') }}" class="btn-glass-solid w-full">
               Back to Home
             </a>
@@ -118,6 +130,20 @@
         <h2 class="text-lg font-semibold text-slate-900">Settings</h2>
         <div class="glass-card mt-3 p-6 space-y-6 relative">
           <div class="relative z-[1] space-y-6">
+
+            <!-- Edit profile -->
+            <div>
+              <div class="text-sm font-semibold text-slate-900">Profile</div>
+              <p class="mt-1 text-sm text-slate-600">
+                Update your display name, bio, and avatar.
+              </p>
+
+              <a href="{{ url_for('profile_edit') }}" class="btn-glass-ghost mt-3 !py-2 !text-sm">
+                Edit profile →
+              </a>
+            </div>
+
+            <div class="border-t border-white/40"></div>
 
             <!-- Change Password -->
             <div>

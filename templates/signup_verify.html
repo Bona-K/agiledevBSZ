@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Verify Email · MyVibe{% endblock %}
+{% block data_page %}signup-verify{% endblock %}
+{% block header %}{% endblock %}
+
+{% block content %}
+<div class="relative z-[1] mx-auto flex min-h-screen w-[94vw] max-w-[1600px] items-center px-6 py-16">
+  <div class="grid w-full items-center gap-10 lg:grid-cols-2">
+
+    <!-- Left: info -->
+    <section>
+      <a href="{{ url_for('signup') }}" class="text-sm font-semibold text-slate-700 hover:text-slate-900">← Back to sign up</a>
+      <h1 class="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">Check your email</h1>
+      <p class="mt-4 max-w-xl text-base leading-7 text-slate-700">
+        We sent a <strong>{{ "6" }}-digit code</strong> to
+        <span class="font-semibold text-slate-900">{{ email }}</span>.
+        Enter it below to verify your account.
+      </p>
+
+      <div class="glass-soft mt-8 p-5 relative">
+        <div class="relative z-[1]">
+          <div class="text-sm font-semibold text-slate-900">Tips</div>
+          <ul class="mt-2 space-y-1 text-sm text-slate-700">
+            <li class="flex items-center gap-2">
+              <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+              Code expires in 10 minutes
+            </li>
+            <li class="flex items-center gap-2">
+              <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+              Check your spam / junk folder
+            </li>
+            <li class="flex items-center gap-2">
+              <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+              Use Resend if you didn't receive it
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      {% if error %}
+      <div class="mt-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50/85 p-4 backdrop-blur" role="alert">
+        <svg class="mt-0.5 h-4 w-4 shrink-0 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+        <p class="text-sm font-medium text-rose-700">{{ error }}</p>
+      </div>
+      {% endif %}
+
+      {% if success %}
+      <div class="mt-4 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/85 p-4 backdrop-blur" role="alert">
+        <svg class="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+        <p class="text-sm font-medium text-emerald-700">{{ success }}</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <!-- Right: form -->
+    <section class="lg:justify-self-end">
+      <div class="glass-strong w-full max-w-md p-7 relative">
+        <div class="relative z-[1]">
+          <div class="text-sm font-semibold text-slate-900">Enter verification code</div>
+          <div class="mt-1 text-sm text-slate-600">Sent to {{ email }}</div>
+
+          <form class="mt-6 space-y-4" method="POST" action="{{ url_for('signup_verify') }}">
+
+            <div>
+              <label for="otp" class="text-sm font-medium text-slate-700">
+                6-digit code <span class="text-rose-500">*</span>
+              </label>
+              <input
+                id="otp"
+                name="otp"
+                type="text"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                maxlength="6"
+                placeholder="e.g. 483920"
+                autofocus
+                class="glass-input mt-2 w-full rounded-xl px-4 py-3 text-sm text-slate-900 tracking-widest text-center text-lg font-semibold"
+              />
+            </div>
+
+            <button type="submit" class="btn-glass-primary w-full">
+              Verify &amp; create account
+            </button>
+          </form>
+
+          <form method="POST" action="{{ url_for('signup_resend_otp') }}" class="mt-3">
+            <button type="submit" class="w-full rounded-xl border border-slate-200 bg-white/60 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-white/90 transition">
+              Resend code
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+{% endblock %}

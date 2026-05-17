@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Messages · MyVibe{% endblock %}
+{% block data_page %}messages{% endblock %}
+
+{% block content %}
+<main class="relative z-[1] mx-auto w-[94vw] max-w-[860px] px-6 py-10">
+
+  <!-- Page header -->
+  <section class="glass-card flex flex-col gap-4 p-7 sm:flex-row sm:items-center sm:justify-between relative">
+    <div class="relative z-[1]">
+      <div class="text-sm font-semibold text-slate-600">Inbox</div>
+      <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Messages</h1>
+      <p class="mt-2 text-sm text-slate-600">
+        Direct messages with people you and they both follow.
+      </p>
+    </div>
+  </section>
+
+  <!-- Conversations list -->
+  <section class="mt-6">
+    {% if convos %}
+    <ul class="space-y-2">
+      {% for c in convos %}
+        {% set other = c.other %}
+        {% set last  = c.last_msg %}
+        <li>
+          <a href="{{ url_for('conversation', username=other.username) }}"
+             class="block rounded-2xl border transition backdrop-blur
+                    {% if c.unread > 0 %}
+                      border-sky-200/70 bg-white/80 hover:bg-white/90
+                    {% else %}
+                      border-white/50 bg-white/45 hover:bg-white/60
+                    {% endif %}"
+             style="box-shadow: 0 4px 18px rgba(31, 38, 135, 0.06), inset 0 1px 0 rgba(255,255,255,0.55);">
+            <div class="flex items-center gap-4 p-4">
+
+              <!-- Avatar -->
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 via-pink-500 to-violet-500 text-base font-semibold text-white shadow-sm">
+                {% if other.profile_img %}
+                  <img src="{{ url_for('static', filename=other.profile_img) }}" alt="" class="h-full w-full object-cover" />
+                {% else %}
+                  {{ (other.display_name or other.username)[0]|upper }}
+                {% endif %}
+              </div>
+
+              <!-- Name + last message preview -->
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="truncate text-sm {% if c.unread > 0 %}font-semibold text-slate-900{% else %}font-semibold text-slate-700{% endif %}">
+                    {{ other.display_name or other.username }}
+                    <span class="ml-1 text-xs font-normal text-slate-500">@{{ other.username }}</span>
+                  </div>
+                  <div class="shrink-0 text-[11px] font-semibold text-slate-500">
+                    {{ last.created_at.strftime('%b %d · %H:%M') }}
+                  </div>
+                </div>
+                <div class="mt-1 flex items-center gap-2">
+                  <p class="truncate text-sm {% if c.unread > 0 %}font-semibold text-slate-900{% else %}text-slate-600{% endif %}">
+                    {% if last.sender_id == current_user.id %}<span class="text-slate-400">You:</span> {% endif %}{{ last.body }}
+                  </p>
+                  {% if c.unread > 0 %}
+                  <span class="ml-auto inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
+                    {{ c.unread if c.unread < 10 else '9+' }}
+                  </span>
+                  {% endif %}
+                </div>
+              </div>
+
+            </div>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+      <div class="glass-card p-10 text-center relative">
+        <div class="relative z-[1]">
+          <div class="text-sm font-semibold text-slate-700">No conversations yet</div>
+          <p class="mt-2 text-sm text-slate-600">
+            Visit a user's profile and start a conversation. You can only message people who both follow you and you follow back.
+          </p>
+          <a href="{{ url_for('explore') }}" class="btn-glass-primary mt-5 inline-block">
+            Explore users
+          </a>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+
+</main>
+{% endblock %}

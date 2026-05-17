@@ -16,11 +16,8 @@
     const savedLocations = C.readStore(C.STORAGE_KEYS.locations, []);
     const me = users.find((u) => u.id === session.userId) || users[0];
 
-    $("#profileName").text(me.name);
-    $("#profileUsername").text("@" + me.username);
-    $("#profileBio").text(me.bio);
-    $("#profileInitials").text(C.initials(me.name));
-    $("#profileJoined").text(C.formatDate(me.joinedAt));
+    // Profile name / bio / initials / joined-at are now rendered by Flask from the DB.
+    // The mock-data store is only used here for routes/locations.
 
     async function loadMyRoutes() {
       try {
@@ -93,7 +90,7 @@
       const nextSaved = C.readStore(C.STORAGE_KEYS.saved, []).filter((id) => id !== routeId);
       C.writeStore(C.STORAGE_KEYS.saved, nextSaved);
       await renderPanels();
-      C.showToast("Route deleted (mock).", "success");
+      C.showToast("Route deleted.", "success");
     });
 
     renderPanels();

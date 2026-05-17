@@ -537,7 +537,83 @@
     bindRouteLikeInteractions,
   };
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // Real-time notification poller
+  //
+  // Polls /api/notifications/poll every 10 seconds for any logged-in page.
+  // - Shows a toast for each new unread notification (follow / message / etc).
+  // - Updates the nav bell badge + nav messages badge in place.
+  // - Tracks the highest notification id seen so we only toast each one once.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  function startNotificationPoller() {
+    const boot = global.MYVIBE_BOOTSTRAP || {};
+    if (!boot.isAuthenticated) return;
+
+    // Skip the poller on the conversation page since it has its own thread poller
+    // and toasting incoming messages there would be redundant.
+    const page = $("body").attr("data-page");
+    if (page === "conversation") {
+      // …but we still want badges updated, so do a lightweight version.
+    }
+
+    let lastSeenId = 0;
+
+    function describe(item) {
+      const name = item.sender && (item.sender.display_name || item.sender.username);
+      if (!name) return "You have a new notification.";
+      if (item.type === "follow")  return `${name} started following you.`;
+      if (item.type === "message") return `${name} sent you a message.`;
+      if (item.type === "like")    return `${name} liked your route.`;
+      if (item.type === "comment") return `${name} commented on your route.`;
+      return `${name}: new activity.`;
+    }
+
+    async function tick() {
+      try {
+        const data = await fetchJson(
+          `api/notifications/poll?since_id=${lastSeenId}`
+        );
+        if (!data || !data.ok) return;
+
+        // Update badges
+        const setBadge = (id, count, lowColorClass) => {
+          const $b = $("#" + id);
+          if (!$b.length) return;
+          if (!count || count === 0) {
+            $b.addClass("hidden").text("");
+          } else {
+            $b.removeClass("hidden").text(count < 10 ? String(count) : "9+");
+          }
+        };
+        setBadge("navNotifBadge", data.unread_notif_count);
+        setBadge("navMsgBadge",   data.unread_msg_count);
+
+        // Toast new ones (skip toasts on the conversation page to avoid double-noise)
+        if (page !== "conversation" && Array.isArray(data.new_notifications)) {
+          for (const item of data.new_notifications) {
+            if (item.id > lastSeenId) lastSeenId = item.id;
+            const tone = item.type === "message" ? "info" : "success";
+            showToast(describe(item), tone);
+          }
+        } else if (Array.isArray(data.new_notifications)) {
+          // Still advance lastSeenId so we don't re-toast next page load.
+          for (const item of data.new_notifications) {
+            if (item.id > lastSeenId) lastSeenId = item.id;
+          }
+        }
+      } catch (err) {
+        // Silent — retry next tick.
+      }
+    }
+
+    // First tick after 2s so the page settles, then every 10s.
+    global.setTimeout(tick, 2000);
+    global.setInterval(tick, 10000);
+  }
+
   $(document).ready(() => {
     bindRouteLikeInteractions();
+    startNotificationPoller();
   });
 })(window);

@@ -13,7 +13,7 @@
       <a href="{{ url_for('index') }}" class="text-sm font-semibold text-slate-700 hover:text-slate-900">← Back</a>
       <h1 class="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">Welcome back</h1>
       <p class="mt-4 max-w-xl text-base leading-7 text-slate-700">
-        Simple mock login for UI demo.
+        Simple login for UI demo.
       </p>
 
       <div class="glass-soft mt-8 p-5 relative">
@@ -72,7 +72,7 @@
               <div class="text-sm font-semibold text-slate-900">Login</div>
               <div class="mt-1 text-sm text-slate-600">Home / Explore / Create / Profile</div>
             </div>
-            <div class="rounded-2xl bg-slate-900 px-3 py-1 text-xs font-semibold text-white">Mock</div>
+            <div class="rounded-2xl bg-slate-900 px-3 py-1 text-xs font-semibold text-white">Demo</div>
           </div>
 
           <form id="loginForm" class="mt-6 space-y-4" method="POST" action="{{ url_for('login') }}" novalidate>
@@ -118,6 +118,10 @@
             >
               Login
             </button>
+
+            <div class="text-center text-xs text-slate-600">
+              <a class="font-semibold text-slate-500 hover:text-slate-700" href="{{ url_for('forgot_password') }}">Forgot password?</a>
+            </div>
 
             <div class="text-center text-xs text-slate-600">
               No account?

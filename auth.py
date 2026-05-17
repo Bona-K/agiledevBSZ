@@ -5,7 +5,7 @@ Issue #34: Extracted from app.py for separation of concerns.
 
 from functools import wraps
 from flask import session, redirect, url_for, request, jsonify
-from models import User, Notification
+from models import User, Notification, Message
 
 
 def get_current_user():
@@ -34,13 +34,19 @@ def login_required(f):
 def get_template_globals():
     """
     Returns shared variables injected into every template via context_processor.
-    Includes: current_user, server_username, myvibe_bootstrap, unread_count.
+    Includes: current_user, server_username, myvibe_bootstrap, unread_count,
+    unread_message_count.
     """
     user = get_current_user()
 
     unread_count = 0
+    unread_message_count = 0
     if user:
         unread_count = Notification.query.filter_by(
+            recipient_id=user.id,
+            is_read=False,
+        ).count()
+        unread_message_count = Message.query.filter_by(
             recipient_id=user.id,
             is_read=False,
         ).count()
@@ -53,5 +59,6 @@ def get_template_globals():
             "username":        user.username if user else None,
             "userId":          user.id if user else None,
         },
-        "unread_count": unread_count,
+        "unread_count":         unread_count,
+        "unread_message_count": unread_message_count,
     }
