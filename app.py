@@ -6,7 +6,7 @@ from auth import get_current_user, login_required, get_template_globals
 from sqlalchemy import text
 from werkzeug.utils import secure_filename
 
-from models import db, User, Follow, Notification
+from models import db, User, Follow, Notification, Message
 from route_service import (
     RouteOwnershipError,
     RouteValidationError,
@@ -218,9 +218,31 @@ def ensure_route_cover_photo_url_column():
         db.session.rollback()
 
 
+def _ensure_column(table: str, column: str, ddl: str):
+    """SQLite helper: add a column if it isn't already present. Silent on failure."""
+    try:
+        if db.engine.dialect.name != "sqlite":
+            return
+        rows = db.session.execute(text(f"PRAGMA table_info({table})")).fetchall()
+        col_names = {row[1] for row in rows}
+        if column in col_names:
+            return
+        db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+def ensure_user_profile_columns():
+    """Older DBs may not have display_name / profile_img on users — add if missing."""
+    _ensure_column("users", "display_name", "VARCHAR(120) DEFAULT ''")
+    _ensure_column("users", "profile_img",  "VARCHAR(300) DEFAULT ''")
+
+
 with app.app_context():
     db.create_all()
     ensure_route_cover_photo_url_column()
+    ensure_user_profile_columns()
     seed_demo_users()
 
 # ---------------------------------------------------------------------------
@@ -521,9 +543,93 @@ def profile():
         "profile.html",
         active_page="profile",
         username=user.username if user else "—",
+        display_name=(user.display_name or user.username) if user else "—",
+        bio=user.bio if user else "",
+        profile_img=user.profile_img if user else "",
+        joined_at=user.joined_at if user else None,
         follower_count=follower_count,
         following_count=following_count,
     )
+
+
+# ---------------------------------------------------------------------------
+# Edit profile
+# ---------------------------------------------------------------------------
+
+def _avatar_upload_dir() -> str:
+    path = os.path.join(app.root_path, "static", "uploads", "avatars")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+_ALLOWED_AVATAR_EXT = frozenset({"png", "jpg", "jpeg", "gif", "webp"})
+_MAX_AVATAR_BYTES   = 4 * 1024 * 1024   # 4 MB
+
+
+@app.route("/profile/edit", methods=["GET", "POST"])
+@login_required
+def profile_edit():
+    """Edit display name, bio, and avatar."""
+    user = current_user()
+
+    if request.method == "POST":
+        display_name = request.form.get("display_name", "").strip()
+        bio          = request.form.get("bio", "").strip()
+        remove_avatar = request.form.get("remove_avatar") == "1"
+
+        # Validate display name (optional — falls back to username when blank)
+        if len(display_name) > 120:
+            return render_template(
+                "profile_edit.html", active_page="profile", user=user,
+                error="Display name must be 120 characters or fewer.",
+            )
+        if len(bio) > 1000:
+            return render_template(
+                "profile_edit.html", active_page="profile", user=user,
+                error="Bio must be 1000 characters or fewer.",
+            )
+
+        # Handle avatar (optional)
+        file = request.files.get("avatar")
+        new_avatar_rel = None
+        if file and file.filename:
+            ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+            if ext not in _ALLOWED_AVATAR_EXT:
+                return render_template(
+                    "profile_edit.html", active_page="profile", user=user,
+                    error="Avatar must be PNG, JPG, GIF, or WebP.",
+                )
+            # Size check — read once, then save
+            file.stream.seek(0, os.SEEK_END)
+            size = file.stream.tell()
+            file.stream.seek(0)
+            if size > _MAX_AVATAR_BYTES:
+                return render_template(
+                    "profile_edit.html", active_page="profile", user=user,
+                    error="Avatar must be 4 MB or smaller.",
+                )
+            safe_base = secure_filename(file.filename.rsplit(".", 1)[0]) or "avatar"
+            stored_name = f"u{user.id}_{secrets.token_hex(4)}_{safe_base}.{ext}"
+            dest_path = os.path.join(_avatar_upload_dir(), stored_name)
+            file.save(dest_path)
+            new_avatar_rel = f"uploads/avatars/{stored_name}"
+
+        # Persist
+        user.display_name = display_name
+        user.bio          = bio
+        if new_avatar_rel is not None:
+            user.profile_img = new_avatar_rel
+        elif remove_avatar:
+            user.profile_img = ""
+        db.session.commit()
+
+        return render_template(
+            "profile_edit.html", active_page="profile", user=user,
+            success="Profile updated.",
+        )
+
+    return render_template("profile_edit.html", active_page="profile", user=user)
+
 
 # ---------------------------------------------------------------------------
 # Change password
@@ -601,7 +707,8 @@ def user_profile(username):
     follower_count  = Follow.query.filter_by(following_id=profile_user.id).count()
     following_count = Follow.query.filter_by(follower_id=profile_user.id).count()
 
-    is_following = False
+    is_following  = False
+    is_followed_by = False
     if me:
         follow_record = Follow.query.filter_by(
             follower_id  = me.id,
@@ -609,12 +716,22 @@ def user_profile(username):
         ).first()
         is_following = follow_record is not None
 
+        reverse_follow = Follow.query.filter_by(
+            follower_id  = profile_user.id,
+            following_id = me.id,
+        ).first()
+        is_followed_by = reverse_follow is not None
+
+    # Mutual follow = both ways. Required to message each other.
+    is_mutual = bool(is_following and is_followed_by)
+
     return render_template(
         "user_profile.html",
         active_page=None,
         profile_user=profile_user,
         is_own_profile=False,
         is_following=is_following,
+        is_mutual=is_mutual,
         follower_count=follower_count,
         following_count=following_count,
         user_routes=[],  # Connected after team PR route_service merge
@@ -927,6 +1044,285 @@ def notification_read_all():
     db.session.commit()
 
     return jsonify(ok=True)
+
+
+# ---------------------------------------------------------------------------
+# Real-time polling endpoint
+# ---------------------------------------------------------------------------
+
+@app.route("/api/notifications/poll", methods=["GET"])
+@login_required
+def api_notifications_poll():
+    """
+    Returns recent unread notifications + total unread counts.
+    The client polls this every ~10s while a tab is open to show toasts and
+    update the bell / message badges without a page reload.
+
+    Query string:
+      since_id   — only return notifications with id > since_id (int, optional)
+    """
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+
+    try:
+        since_id = int(request.args.get("since_id", "0"))
+    except ValueError:
+        since_id = 0
+
+    q = Notification.query.filter_by(recipient_id=user.id, is_read=False)
+    if since_id > 0:
+        q = q.filter(Notification.id > since_id)
+    new_notifs = q.order_by(Notification.created_at.asc()).limit(20).all()
+
+    # Resolve sender usernames for display (one query for all senders)
+    sender_ids = {n.sender_id for n in new_notifs if n.sender_id}
+    senders    = {u.id: u for u in User.query.filter(User.id.in_(sender_ids)).all()}
+
+    new_items = []
+    for n in new_notifs:
+        sender = senders.get(n.sender_id) if n.sender_id else None
+        new_items.append({
+            "id":         n.id,
+            "type":       n.type,
+            "created_at": n.created_at.isoformat() if n.created_at else None,
+            "sender":     {
+                "username":     sender.username if sender else None,
+                "display_name": (sender.display_name or sender.username) if sender else None,
+            } if sender else None,
+        })
+
+    unread_notif_count = Notification.query.filter_by(
+        recipient_id=user.id, is_read=False,
+    ).count()
+    unread_msg_count = Message.query.filter_by(
+        recipient_id=user.id, is_read=False,
+    ).count()
+
+    return jsonify(
+        ok=True,
+        new_notifications=new_items,
+        unread_notif_count=unread_notif_count,
+        unread_msg_count=unread_msg_count,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Direct messages (1-to-1, mutual followers only)
+# ---------------------------------------------------------------------------
+
+def _are_mutual(user_a: User, user_b: User) -> bool:
+    """True iff user_a follows user_b AND user_b follows user_a."""
+    if user_a.id == user_b.id:
+        return False
+    a_follows_b = Follow.query.filter_by(
+        follower_id=user_a.id, following_id=user_b.id,
+    ).first() is not None
+    b_follows_a = Follow.query.filter_by(
+        follower_id=user_b.id, following_id=user_a.id,
+    ).first() is not None
+    return a_follows_b and b_follows_a
+
+
+def _conversation_partners(user: User):
+    """
+    Return all users this person has exchanged messages with, paired with the
+    latest message in that conversation. Used to render the inbox list.
+    """
+    # Gather all messages involving this user, newest first.
+    msgs = (
+        Message.query
+        .filter((Message.sender_id == user.id) | (Message.recipient_id == user.id))
+        .order_by(Message.created_at.desc())
+        .all()
+    )
+
+    # Bucket each conversation under the *other* user's id; keep first (newest) msg.
+    seen = {}
+    for m in msgs:
+        other_id = m.recipient_id if m.sender_id == user.id else m.sender_id
+        if other_id in seen:
+            continue
+        seen[other_id] = m
+
+    # Hydrate users + unread counts
+    if not seen:
+        return []
+    other_ids = list(seen.keys())
+    users     = {u.id: u for u in User.query.filter(User.id.in_(other_ids)).all()}
+
+    convos = []
+    for other_id, last_msg in seen.items():
+        other = users.get(other_id)
+        if not other:
+            continue
+        unread = Message.query.filter_by(
+            sender_id=other_id, recipient_id=user.id, is_read=False,
+        ).count()
+        convos.append({
+            "other":    other,
+            "last_msg": last_msg,
+            "unread":   unread,
+        })
+
+    # Sort by latest activity, newest first
+    convos.sort(key=lambda c: c["last_msg"].created_at, reverse=True)
+    return convos
+
+
+@app.route("/messages")
+@login_required
+def messages_inbox():
+    """List of conversations (one row per partner, newest first)."""
+    user = current_user()
+    convos = _conversation_partners(user)
+    return render_template(
+        "messages.html",
+        active_page="messages",
+        convos=convos,
+    )
+
+
+@app.route("/messages/<username>")
+@login_required
+def conversation(username):
+    """Thread view for one conversation. Marks incoming messages as read."""
+    me = current_user()
+
+    other = User.query.filter_by(username=username).first()
+    if not other:
+        abort(404)
+    if other.id == me.id:
+        return redirect(url_for("messages_inbox"))
+
+    is_mutual = _are_mutual(me, other)
+
+    # Load full thread (both directions)
+    thread = (
+        Message.query
+        .filter(
+            ((Message.sender_id == me.id)    & (Message.recipient_id == other.id)) |
+            ((Message.sender_id == other.id) & (Message.recipient_id == me.id))
+        )
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+
+    # Mark incoming as read on view
+    Message.query.filter_by(
+        sender_id=other.id, recipient_id=me.id, is_read=False,
+    ).update({"is_read": True})
+    db.session.commit()
+
+    return render_template(
+        "conversation.html",
+        active_page="messages",
+        other=other,
+        is_mutual=is_mutual,
+        thread=thread,
+    )
+
+
+@app.route("/api/messages/<username>", methods=["POST"])
+@login_required
+def api_send_message(username):
+    """Send a single message. Both users must be mutual followers."""
+    me = current_user()
+    if me is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+
+    other = User.query.filter_by(username=username).first()
+    if not other:
+        return jsonify(ok=False, error="User not found."), 404
+    if other.id == me.id:
+        return jsonify(ok=False, error="You cannot message yourself."), 400
+
+    if not _are_mutual(me, other):
+        return jsonify(
+            ok=False,
+            error="You can only message users you mutually follow.",
+        ), 403
+
+    data = request.get_json(silent=True) or {}
+    body = (data.get("body") or "").strip()
+    if not body:
+        return jsonify(ok=False, error="Message cannot be empty."), 400
+    if len(body) > 4000:
+        return jsonify(ok=False, error="Message is too long (max 4000 chars)."), 400
+
+    msg = Message(sender_id=me.id, recipient_id=other.id, body=body)
+    db.session.add(msg)
+
+    # Also drop a 'message' notification so the bell badge updates and the
+    # recipient sees a toast next time they poll.
+    notif = Notification(
+        recipient_id=other.id,
+        sender_id=me.id,
+        type="message",
+    )
+    db.session.add(notif)
+    db.session.commit()
+
+    return jsonify(
+        ok=True,
+        message={
+            "id":         msg.id,
+            "body":       msg.body,
+            "sender":     me.username,
+            "recipient":  other.username,
+            "created_at": msg.created_at.isoformat(),
+        },
+    ), 201
+
+
+@app.route("/api/messages/<username>", methods=["GET"])
+@login_required
+def api_get_messages(username):
+    """
+    Fetch messages with `username` newer than ?since_id=<int>.
+    Used by the conversation page to poll for incoming messages.
+    """
+    me = current_user()
+    if me is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+
+    other = User.query.filter_by(username=username).first()
+    if not other:
+        return jsonify(ok=False, error="User not found."), 404
+
+    try:
+        since_id = int(request.args.get("since_id", "0"))
+    except ValueError:
+        since_id = 0
+
+    q = Message.query.filter(
+        ((Message.sender_id == me.id)    & (Message.recipient_id == other.id)) |
+        ((Message.sender_id == other.id) & (Message.recipient_id == me.id))
+    )
+    if since_id > 0:
+        q = q.filter(Message.id > since_id)
+    msgs = q.order_by(Message.created_at.asc()).limit(100).all()
+
+    # Mark incoming-from-other as read on poll too (so badge updates accurately)
+    if msgs:
+        Message.query.filter_by(
+            sender_id=other.id, recipient_id=me.id, is_read=False,
+        ).update({"is_read": True})
+        db.session.commit()
+
+    return jsonify(
+        ok=True,
+        messages=[
+            {
+                "id":         m.id,
+                "body":       m.body,
+                "sender":     "me" if m.sender_id == me.id else other.username,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+            }
+            for m in msgs
+        ],
+    )
+
 
 @app.route("/route/<route_id>")
 @login_required

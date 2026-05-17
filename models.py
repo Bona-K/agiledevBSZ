@@ -15,8 +15,11 @@ class User(db.Model):
     username     = db.Column(db.String(80), unique=True, nullable=False)
     email        = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    # Friendly name shown on cards / messages; falls back to username when blank.
+    display_name = db.Column(db.String(120), default="")
     bio          = db.Column(db.Text, default="")
     joined_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    # Relative URL under /static/ for the user's avatar; empty = use initials fallback.
     profile_img  = db.Column(db.String(300), default="")
 
     # relationships
@@ -148,3 +151,35 @@ class RouteLocation(db.Model):
 
     def __repr__(self):
         return f"<RouteLocation {self.id} route={self.route_id} #{self.stop_order}>"
+
+
+# ---------------------------------------------------------------------------
+# Direct messages between mutual followers
+# ---------------------------------------------------------------------------
+
+class Message(db.Model):
+    """
+    A 1-to-1 direct message between two users. Mutual-follow gate is enforced
+    at the API layer (route handler), not in the schema — that way old messages
+    remain readable even if the follow relationship is later broken.
+    """
+
+    __tablename__ = "messages"
+
+    id           = db.Column(db.Integer, primary_key=True)
+    sender_id    = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    recipient_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    body         = db.Column(db.Text, nullable=False)
+    is_read      = db.Column(db.Boolean, default=False, nullable=False)
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    sender    = db.relationship("User", foreign_keys=[sender_id])
+    recipient = db.relationship("User", foreign_keys=[recipient_id])
+
+    # Helps the inbox query order messages within a conversation efficiently.
+    __table_args__ = (
+        db.Index("ix_messages_pair_created", "sender_id", "recipient_id", "created_at"),
+    )
+
+    def __repr__(self):
+        return f"<Message {self.id} {self.sender_id}→{self.recipient_id}>"
