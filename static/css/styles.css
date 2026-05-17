@@ -474,6 +474,13 @@ body[data-page="home"].app-bg { background-image: none; } /* override */
   box-shadow: 0 16px 40px rgba(31, 38, 135, 0.18), inset 0 1px 0 rgba(255,255,255,0.7);
 }
 .vibe-card__emoji { font-size: 38px; margin-bottom: 14px; }
+.vibe-card__dot {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 16px rgba(15, 23, 42, 0.18);
+}
 .vibe-card__name {
   font-family: "Instrument Serif", serif; font-weight: 400; font-style: italic;
   font-size: 28px; letter-spacing: -0.02em; margin-bottom: 8px;
@@ -1076,6 +1083,14 @@ body.app-bg:not([data-page="home"]) {
   border: 3px solid #fff;
   box-shadow: 0 4px 12px rgba(236, 72, 153, 0.35);
 }
+.route-map-marker__inner {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.4);
+  display: inline-block;
+}
 
 /* Override Leaflet's default popup look to feel glass-y */
 .leaflet-popup-content-wrapper {
@@ -1250,3 +1265,24 @@ body.app-bg:not([data-page="home"]) {
   color: #be185d;
 }
 .loc-rating-display__emoji { font-size: 16px; line-height: 1; }
+
+/* Small colored dot used in mood-board tiles (replaces the emoji icon) */
+.vibe-tile__dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  margin: 0 auto;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+/* Gradient dot used in route-card thumbnails (replaces theme emoji glyph) */
+.route-thumb__dot {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 16px rgba(15, 23, 42, 0.18);
+}
+/* Smaller dot variant for compact route thumbnails inside user_profile / similar cards */
+.route-thumb__dot--sm { width: 30px; height: 30px; }

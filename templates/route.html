@@ -27,8 +27,18 @@
         </div>
 
         <div class="flex flex-wrap gap-2">
-          <button id="btnLike" class="btn-glass-ghost !py-2 !text-sm" type="button">❤ Like</button>
-          <button id="btnSave" class="btn-glass-ghost !py-2 !text-sm" type="button">🔖 Save</button>
+          <button id="btnLike" class="btn-glass-ghost inline-flex items-center gap-1.5 !py-2 !text-sm" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            <span>Like</span>
+          </button>
+          <button id="btnSave" class="btn-glass-ghost inline-flex items-center gap-1.5 !py-2 !text-sm" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>Save</span>
+          </button>
           <button id="btnShare" class="btn-glass-solid !py-2 !text-sm" type="button">Share</button>
           <button id="btnDuplicate" class="btn-glass-ghost !py-2 !text-sm" type="button">Duplicate</button>
         </div>
@@ -74,7 +84,6 @@
         </div>
         <div id="routeMap" role="application" aria-label="Interactive map of route stops"></div>
         <div id="routeMapEmpty" class="route-map-empty hidden">
-          <div class="route-map-empty__emoji">🗺️</div>
           <div class="route-map-empty__title">No coordinates yet</div>
           <div class="route-map-empty__copy">Add latitude &amp; longitude to your stops to see them on the map.</div>
         </div>

@@ -128,12 +128,11 @@
             {% elif route.theme == 'picnic' %}from-yellow-100 to-amber-100
             {% elif route.theme == 'active day' %}from-green-100 to-emerald-100
             {% else %}from-violet-100 to-purple-100{% endif %}">
-            <span class="text-2xl">
-              {% if route.theme == 'first date' %}🌙
-              {% elif route.theme == 'picnic' %}☕
-              {% elif route.theme == 'active day' %}🎒
-              {% else %}🎨{% endif %}
-            </span>
+            <div class="route-thumb__dot route-thumb__dot--sm" style="
+              {% if route.theme == 'first date' %}background: linear-gradient(135deg, #ec4899, #db2777);
+              {% elif route.theme == 'picnic' %}background: linear-gradient(135deg, #f59e0b, #d97706);
+              {% elif route.theme == 'active day' %}background: linear-gradient(135deg, #22c55e, #15803d);
+              {% else %}background: linear-gradient(135deg, #8b5cf6, #6d28d9);{% endif %}"></div>
           </div>
 
           <div class="mt-3">
@@ -162,8 +161,7 @@
         {% else %}
         <div class="glass-card col-span-2 p-8 text-center relative">
           <div class="relative z-[1]">
-            <div class="text-2xl">🗺️</div>
-            <div class="mt-2 text-sm font-semibold text-slate-700">No public routes yet.</div>
+            <div class="text-sm font-semibold text-slate-700">No public routes yet.</div>
             <div class="mt-1 text-xs text-slate-500">
               This user hasn't shared any routes yet.
             </div>

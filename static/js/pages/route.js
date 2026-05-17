@@ -157,7 +157,7 @@
       $("#routeAuthorLink").attr("href", "#");
     }
     const createdLabel = route.createdAt ? C.formatDate(route.createdAt) : "—";
-    $("#routeMeta").text(`${createdLabel} · ${route.locations.length} stops · ★ ${route.rating ?? 4}`);
+    $("#routeMeta").text(`${createdLabel} · ${route.locations.length} stops · ${route.rating ?? 4}/5`);
     $("#routeDesc").text(route.description);
     $("#routeTags").html(
       (route.tags || [])
@@ -175,7 +175,7 @@
           ? `<div class="mt-3"><img src="${C.escapeHtml(loc.photoUrl)}" alt="" class="max-h-48 w-full max-w-md rounded-xl border border-slate-200 object-cover" loading="lazy" /></div>`
           : "";
         const placeLine = loc.placeName
-          ? `<div class="mt-1 text-xs font-semibold text-pink-700">📍 ${C.escapeHtml(loc.placeName)}</div>`
+          ? `<div class="mt-1 text-xs font-semibold text-pink-700">${C.escapeHtml(loc.placeName)}</div>`
           : "";
         const ratingChip = (loc.rating && RATING_EMOJI[loc.rating])
           ? `<div class="loc-rating-display"><span class="loc-rating-display__emoji">${RATING_EMOJI[loc.rating]}</span><span>${loc.rating}/5</span></div>`

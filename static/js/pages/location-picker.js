@@ -61,7 +61,8 @@
   function makePin(L) {
     return L.divIcon({
       className: "",
-      html: '<div class="route-map-marker">📍</div>',
+      // Inner white dot — same outer marker style as the route-detail map, no emoji.
+      html: '<div class="route-map-marker"><span class="route-map-marker__inner"></span></div>',
       iconSize: [32, 32],
       iconAnchor: [16, 16],
     });

@@ -143,7 +143,7 @@
       var marker = L.marker([lat, lng], { icon: makeNumberedIcon(L, displayNum) }).addTo(map);
 
       var placeLine = loc.placeName
-        ? '<div class="map-popup__meta" style="color:#be185d;font-weight:700;">📍 ' + escapeHtml(loc.placeName) + "</div>"
+        ? '<div class="map-popup__meta" style="color:#be185d;font-weight:700;">' + escapeHtml(loc.placeName) + "</div>"
         : "";
       var ratingLine = (loc.rating && RATING_EMOJI[loc.rating])
         ? '<div class="map-popup__meta" style="margin-top:4px;">' + RATING_EMOJI[loc.rating] + " " + escapeHtml(loc.rating) + "/5</div>"
