@@ -474,6 +474,13 @@ body[data-page="home"].app-bg { background-image: none; } /* override */
   box-shadow: 0 16px 40px rgba(31, 38, 135, 0.18), inset 0 1px 0 rgba(255,255,255,0.7);
 }
 .vibe-card__emoji { font-size: 38px; margin-bottom: 14px; }
+.vibe-card__dot {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 16px rgba(15, 23, 42, 0.18);
+}
 .vibe-card__name {
   font-family: "Instrument Serif", serif; font-weight: 400; font-style: italic;
   font-size: 28px; letter-spacing: -0.02em; margin-bottom: 8px;
@@ -990,3 +997,292 @@ body.app-bg:not([data-page="home"]) {
 
 /* Loader: wrap the img so we can scale the wrapper; the inner img still runs its entrance animation */
 /* loader wrapper removed */
+
+/* ============================================================
+   ROUTE MAP (Leaflet) — glass-themed
+   ============================================================ */
+.route-map-card {
+  padding: 18px;
+  border-radius: 24px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  position: relative;
+}
+.route-map-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 0 6px;
+}
+.route-map-card__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+.route-map-card__title svg {
+  width: 16px;
+  height: 16px;
+  color: #ec4899;
+}
+.route-map-card__count {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+#routeMap {
+  width: 100%;
+  height: 360px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  background: rgba(248, 250, 252, 0.6);
+}
+
+/* Empty state when no locations have coordinates */
+.route-map-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 28px 20px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px dashed rgba(15, 23, 42, 0.12);
+  margin-top: 12px;
+}
+.route-map-empty__emoji { font-size: 28px; margin-bottom: 8px; }
+.route-map-empty__title { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+.route-map-empty__copy { font-size: 12px; color: #64748b; max-width: 320px; line-height: 1.5; }
+
+/* Branded numbered marker */
+.route-map-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--brand-gradient-135);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.35);
+}
+.route-map-marker__inner {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.4);
+  display: inline-block;
+}
+
+/* Override Leaflet's default popup look to feel glass-y */
+.leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.95) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
+  border-radius: 14px !important;
+  box-shadow: 0 8px 28px rgba(31, 38, 135, 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+.leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.95) !important;
+}
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  color: #0f172a !important;
+  line-height: 1.5 !important;
+}
+.leaflet-popup-content .map-popup__title {
+  font-weight: 800;
+  font-size: 13px;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+.leaflet-popup-content .map-popup__meta {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+  font-size: 18px !important;
+  padding: 6px 8px 0 0 !important;
+}
+.leaflet-popup-close-button:hover { color: #0f172a !important; }
+
+/* Tone down Leaflet's default attribution so it doesn't fight the glass aesthetic */
+.leaflet-container .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.78) !important;
+  font-size: 10px !important;
+  color: #64748b !important;
+  border-radius: 6px 0 0 0;
+}
+.leaflet-control-attribution a { color: #ec4899 !important; }
+
+/* Zoom controls — round, glass-y */
+.leaflet-touch .leaflet-bar a,
+.leaflet-bar a {
+  background: rgba(255, 255, 255, 0.85) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #0f172a !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  font-size: 18px !important;
+  font-weight: 700;
+}
+.leaflet-bar a:first-child { border-top-left-radius: 10px !important; border-top-right-radius: 10px !important; }
+.leaflet-bar a:last-child { border-bottom-left-radius: 10px !important; border-bottom-right-radius: 10px !important; }
+.leaflet-bar a:hover { background: rgba(255, 255, 255, 1) !important; color: #ec4899 !important; }
+
+/* ============================================================
+   LOCATION PICKER (modal: search + map + smiley rating)
+   ============================================================ */
+
+/* Mini map inside the create-location modal */
+.loc-picker {
+  width: 100%;
+  height: 280px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 12px rgba(15, 23, 42, 0.06);
+  background: rgba(248, 250, 252, 0.6);
+}
+.loc-picker .leaflet-control-attribution { font-size: 9px !important; }
+
+/* Autocomplete dropdown that appears under the place search input */
+.loc-suggest {
+  position: absolute;
+  left: 0; right: 0; top: 100%;
+  margin-top: 6px;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.96);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.loc-suggest__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #0f172a;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+}
+.loc-suggest__item:last-child { border-bottom: none; }
+.loc-suggest__item:hover,
+.loc-suggest__item.is-active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(236, 72, 153, 0.08));
+  color: #be185d;
+}
+.loc-suggest__name { font-weight: 700; }
+.loc-suggest__sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+.loc-suggest__empty,
+.loc-suggest__loading {
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+}
+
+/* Smiley rating selector */
+.loc-rating {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.loc-rating__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  font-size: 26px;
+  background: rgba(255, 255, 255, 0.65);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), background 180ms, box-shadow 180ms;
+  filter: grayscale(40%);
+  opacity: 0.7;
+}
+.loc-rating__btn:hover {
+  transform: translateY(-2px) scale(1.08);
+  filter: grayscale(0);
+  opacity: 1;
+}
+.loc-rating__btn.is-active {
+  background: var(--brand-gradient-135, linear-gradient(135deg, #f59e0b, #ec4899, #8b5cf6));
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 6px 18px rgba(236, 72, 153, 0.35);
+  filter: grayscale(0);
+  opacity: 1;
+  transform: scale(1.06);
+}
+
+/* Smiley shown inline on route detail timeline / map popup */
+.loc-rating-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(236, 72, 153, 0.08);
+  font-size: 14px;
+  font-weight: 700;
+  color: #be185d;
+}
+.loc-rating-display__emoji { font-size: 16px; line-height: 1; }
+
+/* Small colored dot used in mood-board tiles (replaces the emoji icon) */
+.vibe-tile__dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  margin: 0 auto;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+/* Gradient dot used in route-card thumbnails (replaces theme emoji glyph) */
+.route-thumb__dot {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 16px rgba(15, 23, 42, 0.18);
+}
+/* Smaller dot variant for compact route thumbnails inside user_profile / similar cards */
+.route-thumb__dot--sm { width: 30px; height: 30px; }
