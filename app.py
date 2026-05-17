@@ -2,7 +2,7 @@ import os
 import secrets
 
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
-from functools import wraps
+from auth import get_current_user, login_required, get_template_globals
 from sqlalchemy import text
 from werkzeug.utils import secure_filename
 
@@ -27,13 +27,37 @@ from route_service import (
 from utils import check_password, hash_password
 
 app = Flask(__name__)
-app.secret_key = "myvibe-dev-secret-change-in-production"
+
+# ---------------------------------------------------------------------------
+# Security configuration — load from .env file or environment variables
+# ---------------------------------------------------------------------------
+
+# Load .env file manually if it exists (no extra dependencies needed)
+_env_path = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(_env_path):
+    with open(_env_path) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _key, _val = _line.split("=", 1)
+                os.environ.setdefault(_key.strip(), _val.strip())
+
+_secret = os.environ.get("FLASK_SECRET_KEY", "").strip()
+if not _secret:
+    _secret = "myvibe-dev-secret-change-in-production"
+
+app.secret_key = _secret
+
+# Session cookie hardening
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["PERMANENT_SESSION_LIFETIME"] = 60 * 60 * 24 * 7   # 7 days
 
 # ---------------------------------------------------------------------------
 # Database configuration
 # ---------------------------------------------------------------------------
 
-app.config["SQLALCHEMY_DATABASE_URI"]        = "sqlite:///myvibe.db"
+app.config["SQLALCHEMY_DATABASE_URI"]        = os.environ.get("DATABASE_URL", "sqlite:///myvibe.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
@@ -129,12 +153,8 @@ THEMES = ["first date", "picnic", "active day", "hidden gems"]
 # Auth helpers
 # ---------------------------------------------------------------------------
 
-def current_user():
-    """Return the logged-in User object from session, or None."""
-    user_id = session.get("user_id")
-    if not user_id:
-        return None
-    return User.query.get(user_id)
+# current_user moved to auth.py
+current_user = get_current_user
 
 
 @app.context_processor
@@ -170,14 +190,7 @@ def inject_template_globals():
     }
 
 
-def login_required(f):
-    """Redirect unauthenticated requests to the login page."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if session.get("user_id") is None:
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-    return decorated
+# login_required moved to auth.py
 
 # ---------------------------------------------------------------------------
 # Auth routes
