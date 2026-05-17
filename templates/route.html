@@ -4,55 +4,65 @@
 {% block data_page %}route{% endblock %}
 
 {% block content %}
-<main class="mx-auto w-[94vw] max-w-[1600px] px-6 py-10">
-  <section class="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div class="min-w-0">
-        <div class="text-xs font-semibold text-slate-600">Route detail</div>
-        <h1 id="routeTitle" class="mt-2 truncate text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-          {{ route.title if route else '—' }}
-        </h1>
-        <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-          <span id="routeTheme" class="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
-            {{ route.theme if route else '—' }}
-          </span>
-          <span>by <a id="routeAuthorLink" href="#" class="font-semibold text-slate-800 hover:text-sky-800"><span id="routeAuthor">{{ route.author if route else '—' }}</span></a></span>
-          <span class="text-slate-400">·</span>
-          <span id="routeMeta">{{ route.meta if route else '—' }}</span>
+<main class="relative z-[1] mx-auto w-[94vw] max-w-[1600px] px-6 py-10">
+  <section class="glass-card p-7 relative">
+    <div class="relative z-[1]">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
+          <div class="text-xs font-semibold text-slate-600">Route detail</div>
+          <h1 id="routeTitle" class="mt-2 truncate text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+            {{ route.title if route else '—' }}
+          </h1>
+          <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+            <span id="routeTheme" class="rounded-full bg-gradient-to-r from-amber-500 via-pink-500 to-violet-500 px-3 py-1 text-xs font-semibold text-white shadow-md">
+              {{ route.theme if route else '—' }}
+            </span>
+            <span>by <a id="routeAuthorLink" href="#" class="font-semibold text-slate-800 hover:text-sky-800"><span id="routeAuthor">{{ route.author if route else '—' }}</span></a></span>
+            <span class="text-slate-400">·</span>
+            <span id="routeMeta">{{ route.meta if route else '—' }}</span>
+          </div>
+          <p id="routeDesc" class="mt-4 max-w-3xl text-sm leading-6 text-slate-700">
+            {{ route.description if route else '—' }}
+          </p>
         </div>
-        <p id="routeDesc" class="mt-4 max-w-3xl text-sm leading-6 text-slate-700">
-          {{ route.description if route else '—' }}
-        </p>
-      </div>
 
-      <div class="flex flex-wrap gap-2">
-        <button id="btnLike" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50" type="button">❤ Like</button>
-        <button id="btnSave" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50" type="button">🔖 Save</button>
-        <button id="btnShare" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800" type="button">Share</button>
-        <button id="btnDuplicate" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50" type="button">Duplicate</button>
-      </div>
-    </div>
-
-    <div class="mt-6 flex flex-wrap gap-2" id="routeTags">
-      {% if route and route.tags %}
-        {% for tag in route.tags %}
-        <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">#{{ tag }}</span>
-        {% endfor %}
-      {% endif %}
-    </div>
-
-    <div id="ownerActions" class="mt-4 {% if not is_owner %}hidden{% endif %}">
-      <div class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
-        <div class="text-xs font-semibold uppercase tracking-wide text-amber-700">Owner actions</div>
-        <div class="mt-3 flex flex-wrap gap-2">
-          <a id="btnEditRoute" href="{{ url_for('create_route') }}"
-             class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50">
-            Edit route
-          </a>
-          <button id="btnDeleteRoute" type="button"
-                  class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700">
-            Delete route
+        <div class="flex flex-wrap gap-2">
+          <button id="btnLike" class="btn-glass-ghost inline-flex items-center gap-1.5 !py-2 !text-sm" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            <span>Like</span>
           </button>
+          <button id="btnSave" class="btn-glass-ghost inline-flex items-center gap-1.5 !py-2 !text-sm" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>Save</span>
+          </button>
+          <button id="btnShare" class="btn-glass-solid !py-2 !text-sm" type="button">Share</button>
+          <button id="btnDuplicate" class="btn-glass-ghost !py-2 !text-sm" type="button">Duplicate</button>
+        </div>
+      </div>
+
+      <div class="mt-6 flex flex-wrap gap-2" id="routeTags">
+        {% if route and route.tags %}
+          {% for tag in route.tags %}
+          <span class="rounded-full border border-white/60 bg-white/55 backdrop-blur px-3 py-1 text-xs font-medium text-slate-700">#{{ tag }}</span>
+          {% endfor %}
+        {% endif %}
+      </div>
+
+      <div id="ownerActions" class="mt-4 {% if not is_owner %}hidden{% endif %}">
+        <div class="rounded-2xl border border-amber-200 bg-amber-50/70 backdrop-blur p-4">
+          <div class="text-xs font-semibold uppercase tracking-wide text-amber-700">Owner actions</div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <a id="btnEditRoute" href="{{ url_for('create_route') }}" class="btn-glass-ghost !py-2 !text-sm">
+              Edit route
+            </a>
+            <button id="btnDeleteRoute" type="button" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:bg-rose-700 transition">
+              Delete route
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -60,6 +70,25 @@
 
   <section class="mt-6 grid gap-6 lg:grid-cols-[1fr,320px]">
     <section>
+      <!-- Interactive map -->
+      <div id="routeMapCard" class="route-map-card mb-6">
+        <div class="route-map-card__head">
+          <div class="route-map-card__title">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            <span>Route map</span>
+          </div>
+          <div id="routeMapCount" class="route-map-card__count">—</div>
+        </div>
+        <div id="routeMap" role="application" aria-label="Interactive map of route stops"></div>
+        <div id="routeMapEmpty" class="route-map-empty hidden">
+          <div class="route-map-empty__title">No coordinates yet</div>
+          <div class="route-map-empty__copy">Add latitude &amp; longitude to your stops to see them on the map.</div>
+        </div>
+      </div>
+
       <div class="flex items-end justify-between gap-6">
         <div>
           <h2 class="text-lg font-semibold text-slate-900">Locations timeline</h2>
@@ -69,56 +98,59 @@
       <ol id="routeLocations" class="mt-4 grid gap-3"></ol>
     </section>
 
-    <aside class="rounded-3xl border border-slate-200 bg-white/70 p-5 shadow-sm backdrop-blur">
-      <div class="rounded-2xl border border-slate-200 bg-white p-4">
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Route actions</div>
-        <div class="mt-3 grid gap-2">
-          <button id="btnCompleted" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50">
-            Mark as completed
-          </button>
-          <div class="flex items-center gap-2">
-            <label for="ratingSelect" class="text-sm font-semibold text-slate-700">Rate</label>
-            <select id="ratingSelect" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-900">
-              <option value="">Select</option>
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-            </select>
-            <button id="btnSubmitRating" type="button" class="rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm font-semibold text-slate-900 hover:bg-slate-50">Submit</button>
+    <aside class="glass-card p-6 relative">
+      <div class="relative z-[1]">
+        <div class="rounded-2xl border border-white/60 bg-white/55 backdrop-blur p-4">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Route actions</div>
+          <div class="mt-3 grid gap-2">
+            <button id="btnCompleted" type="button" class="btn-glass-ghost !py-2 !text-sm">
+              Mark as completed
+            </button>
+            <div class="flex items-center gap-2">
+              <label for="ratingSelect" class="text-sm font-semibold text-slate-700">Rate</label>
+              <select id="ratingSelect" class="glass-input rounded-lg px-2 py-1 text-sm text-slate-900">
+                <option value="">Select</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+              <button id="btnSubmitRating" type="button" class="rounded-lg border border-white/70 bg-white/70 backdrop-blur px-3 py-1 text-sm font-semibold text-slate-900 hover:bg-white/90 transition">Submit</button>
+            </div>
+            <button id="btnReport" type="button" class="rounded-xl border border-rose-200 bg-rose-50/70 backdrop-blur px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100/80 transition">
+              Report
+            </button>
           </div>
-          <button id="btnReport" type="button" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 shadow-sm hover:bg-rose-100">
-            Report
+        </div>
+
+        <div class="mt-4 text-sm font-semibold text-slate-900">Comments</div>
+        <p class="mt-1 text-sm text-slate-600">Leave a comment</p>
+
+        <div class="mt-4 space-y-3" id="commentList"></div>
+
+        <div class="mt-4">
+          <label class="text-sm font-medium text-slate-700" for="cmt">Add comment</label>
+          <textarea
+            id="cmt"
+            class="glass-input mt-2 w-full rounded-xl px-4 py-3 text-sm text-slate-900"
+            placeholder="Write your comment"
+            rows="3"
+          ></textarea>
+          <button id="btnCmt" type="button" class="btn-glass-ghost mt-3 w-full !py-2 !text-sm">
+            Submit (mock)
           </button>
         </div>
-      </div>
-
-      <div class="text-sm font-semibold text-slate-900">Comments</div>
-      <p class="mt-1 text-sm text-slate-600">Leave a comment</p>
-
-      <div class="mt-4 space-y-3" id="commentList"></div>
-
-      <div class="mt-4">
-        <label class="text-sm font-medium text-slate-700" for="cmt">Add comment</label>
-        <textarea
-          id="cmt"
-          class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none ring-sky-500/30 focus:ring-4"
-          placeholder="Write your comment"
-          rows="3"
-        ></textarea>
-        <button id="btnCmt" type="button"
-                class="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50">
-          Submit (mock)
-        </button>
       </div>
     </aside>
   </section>
 
-  <section class="mt-6 rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur">
-    <h2 class="text-lg font-semibold text-slate-900">Similar routes</h2>
-    <p class="mt-1 text-sm text-slate-600">Based on theme and tags</p>
-    <div id="similarRoutes" class="mt-4 grid gap-3 md:grid-cols-2"></div>
+  <section class="glass-card mt-6 p-7 relative">
+    <div class="relative z-[1]">
+      <h2 class="text-lg font-semibold text-slate-900">Similar routes</h2>
+      <p class="mt-1 text-sm text-slate-600">Based on theme and tags</p>
+      <div id="similarRoutes" class="mt-4 grid gap-3 md:grid-cols-2"></div>
+    </div>
   </section>
 </main>
 {% endblock %}
@@ -136,4 +168,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/pages/route.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/route-map.js') }}"></script>
 {% endblock %}

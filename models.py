@@ -142,12 +142,16 @@ class RouteLocation(db.Model):
     route_id = db.Column(db.Integer, db.ForeignKey("routes.id"), nullable=False)
     stop_order = db.Column(db.Integer, nullable=False)
     name = db.Column(db.String(200), nullable=False)
+    # Optional venue/place name (e.g. event="Breakfast", place_name="The Coffee Club").
+    place_name = db.Column(db.String(200), nullable=True)
     time = db.Column(db.String(32), nullable=False)
     description = db.Column(db.Text, nullable=False, default="")
     parking = db.Column(db.String(32), nullable=False, default="unknown")
     photo_url = db.Column(db.String(500), nullable=True)
     lat = db.Column(db.Float, nullable=True)
     lng = db.Column(db.Float, nullable=True)
+    # Per-stop smiley rating: 1=😡 .. 5=😍 (nullable = not yet rated).
+    rating = db.Column(db.Integer, nullable=True)
 
     route = db.relationship("Route", back_populates="locations")
 

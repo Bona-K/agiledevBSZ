@@ -68,27 +68,21 @@ db.init_app(app)
 
 def seed_demo_users():
     """Insert demo accounts on first run. Skips existing usernames."""
+    from models import Route, RouteLocation
+    from datetime import datetime
+
     demo_accounts = [
         {
-            "username":     "alex",
-            "email":        "alex@myvibe.demo",
-            "password":     "password123",
-            "display_name": "Alex",
-            "bio":          "Hi, I'm Alex. I love exploring the city.",
+            "username": "alex",
+            "email":    "alex@myvibe.demo",
+            "password": "11111111",
+            "bio":      "Hi, I'm Alex. I love exploring Sydney's hidden gems.",
         },
         {
-            "username":     "mina",
-            "email":        "mina@myvibe.demo",
-            "password":     "password123",
-            "display_name": "Mina",
-            "bio":          "Mina here — always looking for the next great route.",
-        },
-        {
-            "username":     "sam",
-            "email":        "sam@myvibe.demo",
-            "password":     "password123",
-            "display_name": "Sam",
-            "bio":          "Sam — coffee and sunset chaser.",
+            "username": "mina",
+            "email":    "mina@myvibe.demo",
+            "password": "11111111",
+            "bio":      "Mina here — Melbourne foodie, route designer, sunset chaser.",
         },
     ]
 
@@ -105,6 +99,107 @@ def seed_demo_users():
             db.session.add(user)
 
     db.session.commit()
+
+    # Seed sample routes (only if none exist) so the map demo lights up immediately.
+    if Route.query.count() == 0:
+        alex = User.query.filter_by(username="alex").first()
+        mina = User.query.filter_by(username="mina").first()
+
+        if alex:
+            r = Route(
+                author_id=alex.id,
+                title="Sydney Harbour first date",
+                description="Coffee at the Rocks, Opera House views, ferry across to Manly. Easy, scenic, photogenic.",
+                theme="first date",
+                tags=["date", "sunset", "iconic"],
+                is_public=True,
+            )
+            db.session.add(r); db.session.flush()
+            stops_a = [
+                # (order, event, place, time, desc, parking, lat, lng, rating)
+                (1, "Morning coffee", "The Fine Food Store",      "09:30", "Cosy laneway cafe in the Rocks.",        "<500m", -33.8587, 151.2099, 5),
+                (2, "Opera House walk", "Sydney Opera House",     "11:00", "Walk the forecourt and snap photos.",    "<1km",  -33.8568, 151.2153, 5),
+                (3, "Ferry to Manly", "Circular Quay Wharf 3",    "13:30", "Grab a seat on the right side for views.","<500m", -33.8613, 151.2106, 4),
+                (4, "Sunset at the cliffs", "North Head Lookout", "17:45", "Golden hour over the harbour.",          "yes",   -33.8230, 151.2960, 5),
+            ]
+            for order, event, place, time, desc, parking, lat, lng, rating in stops_a:
+                db.session.add(RouteLocation(
+                    route_id=r.id, stop_order=order, name=event, place_name=place,
+                    time=time, description=desc, parking=parking,
+                    lat=lat, lng=lng, rating=rating,
+                ))
+
+            r2 = Route(
+                author_id=alex.id,
+                title="Bondi to Coogee coastal walk",
+                description="The classic coastal walk — beaches, cliffs, swims along the way.",
+                theme="active day",
+                tags=["walk", "beach", "summer"],
+                is_public=True,
+            )
+            db.session.add(r2); db.session.flush()
+            stops_a2 = [
+                (1, "Start at Bondi",   "Bondi Beach",       "08:00", "Stretch and start the walk.",        "<1km",  -33.8915, 151.2767, 4),
+                (2, "Tamarama break",   "Tamarama Beach",    "08:45", "Small bay, often quieter.",          "<500m", -33.9007, 151.2710, 4),
+                (3, "Bronte swim",      "Bronte Beach",      "09:30", "Optional dip in the rock pool.",     "<1km",  -33.9043, 151.2680, 5),
+                (4, "Finish at Coogee", "Coogee Beach",      "11:00", "Coffee or beer to celebrate.",       "<1km",  -33.9215, 151.2587, 5),
+            ]
+            for order, event, place, time, desc, parking, lat, lng, rating in stops_a2:
+                db.session.add(RouteLocation(
+                    route_id=r2.id, stop_order=order, name=event, place_name=place,
+                    time=time, description=desc, parking=parking,
+                    lat=lat, lng=lng, rating=rating,
+                ))
+
+        if mina:
+            r3 = Route(
+                author_id=mina.id,
+                title="Melbourne laneway picnic day",
+                description="Brunch, laneway art, then picnic in the Botanic Gardens. Pure Melbourne energy.",
+                theme="picnic",
+                tags=["picnic", "coffee", "art"],
+                is_public=True,
+            )
+            db.session.add(r3); db.session.flush()
+            stops_m = [
+                (1, "Brunch",           "Hardware Société",         "09:00", "Iconic Melbourne brunch — go early.",   "<1km",  -37.8128, 144.9620, 5),
+                (2, "Laneway art",      "Hosier Lane",              "11:00", "Walk through the famous street art.",  "<500m", -37.8160, 144.9690, 4),
+                (3, "Pick up snacks",   "Queen Victoria Market",    "12:00", "Cheese, bread, fruit for the picnic.", "<1km",  -37.8076, 144.9568, 4),
+                (4, "Picnic",           "Royal Botanic Gardens",    "13:30", "Find a shaded lawn and chill.",        "<1km",  -37.8304, 144.9796, 5),
+            ]
+            for order, event, place, time, desc, parking, lat, lng, rating in stops_m:
+                db.session.add(RouteLocation(
+                    route_id=r3.id, stop_order=order, name=event, place_name=place,
+                    time=time, description=desc, parking=parking,
+                    lat=lat, lng=lng, rating=rating,
+                ))
+
+            r4 = Route(
+                author_id=mina.id,
+                title="Hidden gems of Fitzroy",
+                description="Bookshops, vintage stores, a sneaky cocktail bar. Slow Saturday vibes.",
+                theme="hidden gems",
+                tags=["hidden", "drinks", "vintage"],
+                is_public=True,
+            )
+            db.session.add(r4); db.session.flush()
+            stops_m2 = [
+                (1, "Coffee + record shop", "Polyester Records",   "11:00", "Browse vinyl with a flat white.",       "<500m", -37.8004, 144.9789, 4),
+                (2, "Vintage hunting",      "Smith Street vintage","12:30", "Plenty of small stores along Smith.",   "<1km",  -37.7965, 144.9846, 4),
+                (3, "Late lunch",           "Cutler & Co",         "14:30", "Tasting menu if you're feeling fancy.", "<500m", -37.7995, 144.9826, 5),
+                (4, "Cocktails",            "The Everleigh",       "18:00", "Speakeasy upstairs — quiet, classy.",   "<1km",  -37.7993, 144.9776, 5),
+            ]
+            for order, event, place, time, desc, parking, lat, lng, rating in stops_m2:
+                db.session.add(RouteLocation(
+                    route_id=r4.id, stop_order=order, name=event, place_name=place,
+                    time=time, description=desc, parking=parking,
+                    lat=lat, lng=lng, rating=rating,
+                ))
+
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
 
 def ensure_route_cover_photo_url_column():
