@@ -62,7 +62,7 @@
 
     let locations = isEdit
       ? (editingRoute.locations || []).slice().sort((a, b) => a.order - b.order)
-      : [];
+      : [{ order: 1, time: "10:00", name: "Place name", desc: "Short description", parking: "unknown", photoUrl: null }];
     let locModalMode = "create";
     let editingLocIndex = -1;
     let locPendingPhotoUrl = null;
@@ -166,25 +166,7 @@
       return "Unknown";
     }
 
-    const INVALID_STOP_NAMES = new Set(["place name"]);
-
-    function normalizeStopName(name) {
-      return String(name || "").trim();
-    }
-
-    function isValidStopName(name) {
-      const trimmed = normalizeStopName(name);
-      if (!trimmed) return false;
-      if (INVALID_STOP_NAMES.has(trimmed.toLowerCase())) return false;
-      return true;
-    }
-
-    function sortLocationsByOrder() {
-      locations.sort((a, b) => Number(a.order) - Number(b.order));
-    }
-
     function renumber() {
-      // Assign order from current array positions only — do not sort here or ↑↓ swaps are undone.
       locations = locations.map((l, i) => ({ ...l, order: i + 1 }));
     }
 
@@ -346,15 +328,10 @@
       $("#savedLocationSelect").html(options || `<option value="">No saved locations</option>`);
     }
 
-    function locationIndexFromBtn($btn) {
-      const idx = Number($btn.closest("button").attr("data-loc-idx"));
-      if (!Number.isFinite(idx) || idx < 0 || idx >= locations.length) return -1;
-      return idx;
-    }
-
     function renderLocs() {
-      sortLocationsByOrder();
       const html = locations
+        .slice()
+        .sort((a, b) => a.order - b.order)
         .map((loc, idx) => {
           const thumb = loc.photoUrl
             ? `<div class="mt-2"><img src="${C.escapeHtml(loc.photoUrl)}" alt="" class="max-h-24 rounded-lg border border-slate-200 object-cover" loading="lazy" /></div>`
@@ -369,10 +346,10 @@
                   ${thumb}
                 </div>
                 <div class="flex flex-col gap-2">
-                  <button data-loc-idx="${idx}" class="btnEdit rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">Edit</button>
-                  <button data-loc-idx="${idx}" class="btnUp rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↑</button>
-                  <button data-loc-idx="${idx}" class="btnDown rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↓</button>
-                  <button data-loc-idx="${idx}" class="btnDel rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700" type="button">Delete</button>
+                  <button data-edit="${idx}" class="btnEdit rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">Edit</button>
+                  <button data-up="${idx}" class="btnUp rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↑</button>
+                  <button data-down="${idx}" class="btnDown rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↓</button>
+                  <button data-del="${idx}" class="btnDel rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700" type="button">Delete</button>
                 </div>
               </div>
             </li>
@@ -385,7 +362,6 @@
     }
 
     function openLocModal(modeName, idx) {
-      sortLocationsByOrder();
       locModalMode = modeName;
       editingLocIndex = typeof idx === "number" ? idx : -1;
       clearLocModalErrors();
@@ -464,31 +440,11 @@
         $("#rtTheme").addClass("border-rose-300 ring-2 ring-rose-200");
         ok = false;
       }
-      if (!validateAllStops()) ok = false;
-      return ok;
-    }
-
-    function validateAllStops() {
-      sortLocationsByOrder();
-      const issues = [];
       if (!locations.length) {
         $("#errRtLocations").removeClass("hidden").text("Add at least one location.");
-        return false;
+        ok = false;
       }
-      locations.forEach((loc, i) => {
-        const time = String(loc.time || "").trim();
-        if (!isValidStopName(loc.name)) {
-          issues.push(`Stop ${i + 1}: location name is required.`);
-        }
-        if (!time) {
-          issues.push(`Stop ${i + 1}: time is required.`);
-        }
-      });
-      if (!issues.length) return true;
-      const summary = issues.slice(0, 4).join(" ");
-      $("#errLocList").removeClass("hidden").text(summary + (issues.length > 4 ? " …" : ""));
-      $("#errRtLocations").removeClass("hidden").text("Fix each stop before saving.");
-      return false;
+      return ok;
     }
 
     function buildCreatePayload() {
@@ -543,14 +499,9 @@
     }
 
     if (isEdit) {
-      renumber();
       $("#rtTitle").val(editingRoute.title);
       $("#rtTheme").val(editingRoute.theme);
-      $("#rtTags").val(
-        Array.isArray(editingRoute.tags)
-          ? editingRoute.tags.join(",")
-          : String(editingRoute.tags || "")
-      );
+      $("#rtTags").val((editingRoute.tags || []).join(","));
       $("#rtDesc").val(editingRoute.description);
       $("#rtPublic").prop("checked", Boolean(editingRoute.isPublic));
       $("h1").first().text("Edit route");
@@ -674,14 +625,12 @@
           : (prev && prev.rating != null ? prev.rating : null),
       };
 
-      const wasEdit = locModalMode === "edit" && editingLocIndex >= 0;
-      if (wasEdit) locations[editingLocIndex] = loc;
+      if (locModalMode === "edit" && editingLocIndex >= 0) locations[editingLocIndex] = loc;
       else locations.push(loc);
       renumber();
       renderLocs();
       closeLocModal();
       scheduleDraftSave();
-      C.showToast(wasEdit ? "Location updated." : "Location added.", "success");
 
       const exists = savedLocations.some((x) => x.name.toLowerCase() === name.toLowerCase());
       if (!exists) {
@@ -697,61 +646,38 @@
       }
     });
 
-    $("#locName").on("input", function () {
-      $(this).removeClass("border-rose-300");
-      $("#errLocName").addClass("hidden").text("");
-    });
-    $("#locTime").on("input", function () {
-      $(this).removeClass("border-rose-300");
-      $("#errLocTime").addClass("hidden").text("");
-    });
-
     $("#locList").on("click", ".btnEdit", function () {
-      const idx = locationIndexFromBtn($(this));
-      if (idx < 0) return;
+      const idx = Number($(this).attr("data-edit"));
+      if (idx < 0 || idx >= locations.length) return;
       openLocModal("edit", idx);
     });
     $("#locList").on("click", ".btnDel", function () {
-      const idx = locationIndexFromBtn($(this));
-      if (idx < 0) return;
-      const stop = locations[idx];
-      const label = stop && stop.name ? `"${stop.name}"` : "this stop";
-      if (!window.confirm(`Remove ${label}? This cannot be undone.`)) return;
+      const idx = Number($(this).attr("data-del"));
+      if (idx < 0 || idx >= locations.length) return;
       locations.splice(idx, 1);
       renumber();
       renderLocs();
       scheduleDraftSave();
-      C.showToast("Location removed.", "success");
     });
     $("#locList").on("click", ".btnUp", function () {
-      const idx = locationIndexFromBtn($(this));
-      if (idx < 0) return;
-      if (idx <= 0) {
-        C.showToast("Already at the top.", "info");
-        return;
-      }
+      const idx = Number($(this).attr("data-up"));
+      if (idx <= 0) return;
       const tmp = locations[idx - 1];
       locations[idx - 1] = locations[idx];
       locations[idx] = tmp;
       renumber();
       renderLocs();
       scheduleDraftSave();
-      C.showToast("Stop moved up.", "success");
     });
     $("#locList").on("click", ".btnDown", function () {
-      const idx = locationIndexFromBtn($(this));
-      if (idx < 0) return;
-      if (idx >= locations.length - 1) {
-        C.showToast("Already at the bottom.", "info");
-        return;
-      }
+      const idx = Number($(this).attr("data-down"));
+      if (idx >= locations.length - 1) return;
       const tmp = locations[idx + 1];
       locations[idx + 1] = locations[idx];
       locations[idx] = tmp;
       renumber();
       renderLocs();
       scheduleDraftSave();
-      C.showToast("Stop moved down.", "success");
     });
 
     $("#btnAddSavedLoc").on("click", () => {
@@ -769,7 +695,6 @@
       renumber();
       renderLocs();
       scheduleDraftSave();
-      C.showToast("Location added.", "success");
     });
 
     $("#rtTitle, #rtTheme, #rtTags, #rtDesc").on("input", () => {
@@ -802,7 +727,9 @@
       routeCoverRemoved = false;
       $("#rtCover").val("");
       syncRouteCoverPreview();
-      locations = [];
+      locations = [
+        { order: 1, time: "10:00", name: "Place name", desc: "Short description", parking: "unknown", photoUrl: null },
+      ];
       renderLocs();
       renderPreview();
       C.showToast("Draft discarded.", "info");
