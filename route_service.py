@@ -167,16 +167,33 @@ def _prepare_create_route_data(
         except (TypeError, ValueError):
             lat_f, lng_f = None, None
 
+        place_raw = item.get("placeName", item.get("place_name"))
+        place_name = str(place_raw).strip() if place_raw else None
+        if place_name == "":
+            place_name = None
+
+        rating_raw = item.get("rating")
+        rating_f = None
+        if rating_raw is not None and rating_raw != "":
+            try:
+                ri = int(rating_raw)
+                if 1 <= ri <= 5:
+                    rating_f = ri
+            except (TypeError, ValueError):
+                rating_f = None
+
         validated_stops.append(
             {
                 "stop_order": stop_order,
                 "name": name,
+                "place_name": place_name,
                 "time": time_s,
                 "description": desc,
                 "parking": parking,
                 "photo_url": photo_url,
                 "lat": lat_f,
                 "lng": lng_f,
+                "rating": rating_f,
             }
         )
 
@@ -225,12 +242,14 @@ def create_route_from_payload(author_id: Optional[int], payload: dict[str, Any])
                 route_id=route.id,
                 stop_order=row["stop_order"],
                 name=row["name"],
+                place_name=row["place_name"],
                 time=row["time"],
                 description=row["description"],
                 parking=row["parking"],
                 photo_url=row["photo_url"],
                 lat=row["lat"],
                 lng=row["lng"],
+                rating=row["rating"],
             )
         )
 
@@ -323,12 +342,14 @@ def duplicate_route_for_user(source_route_id: int, new_author_id: int) -> Option
                 route_id=clone.id,
                 stop_order=loc.stop_order,
                 name=loc.name,
+                place_name=loc.place_name,
                 time=loc.time,
                 description=loc.description,
                 parking=loc.parking,
                 photo_url=loc.photo_url,
                 lat=loc.lat,
                 lng=loc.lng,
+                rating=loc.rating,
             )
         )
     try:
@@ -382,12 +403,14 @@ def update_route_for_owner(route_id: int, owner_id: int, payload: dict[str, Any]
                 route_id=route.id,
                 stop_order=row["stop_order"],
                 name=row["name"],
+                place_name=row["place_name"],
                 time=row["time"],
                 description=row["description"],
                 parking=row["parking"],
                 photo_url=row["photo_url"],
                 lat=row["lat"],
                 lng=row["lng"],
+                rating=row["rating"],
             )
         )
 
@@ -723,6 +746,7 @@ def serialize_route_for_client(
             {
                 "order": loc.stop_order,
                 "name": loc.name,
+                "placeName": loc.place_name,
                 "time": loc.time,
                 "desc": loc.description,
                 "parking": loc.parking,
@@ -730,6 +754,7 @@ def serialize_route_for_client(
                 "photoUrl": loc.photo_url,
                 "lat": loc.lat,
                 "lng": loc.lng,
+                "rating": loc.rating,
             }
             for loc in locs
         ],

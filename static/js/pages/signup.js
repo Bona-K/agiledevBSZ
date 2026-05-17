@@ -77,13 +77,13 @@
       $msg
         .removeClass("hidden text-rose-600")
         .addClass("text-emerald-600")
-        .text("✓ Passwords match");
+        .text("Passwords match");
       clearFieldError($("#suPassword2"), $msg);
     } else {
       $msg
         .removeClass("hidden text-emerald-600")
         .addClass("text-rose-600")
-        .text("✗ Passwords do not match");
+        .text("Passwords do not match");
     }
   }
 
@@ -137,7 +137,7 @@
       $("#passwordMatchMsg")
         .removeClass("hidden text-emerald-600")
         .addClass("text-rose-600")
-        .text("✗ Passwords do not match");
+        .text("Passwords do not match");
       valid = false;
     }
 
