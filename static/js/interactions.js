@@ -93,17 +93,23 @@
     let users = readStore(STORAGE_KEYS.users, []);
     let user = users.find((entry) => entry.username === username);
 
+    const displayName = String(bootstrap.displayName || username).trim();
+    const bio = String(bootstrap.bio || "");
+
     if (!user) {
       user = {
         id: "u_" + Math.floor(Math.random() * 1000000),
-        name: username,
+        name: displayName,
         username,
-        bio: "No bio yet.",
+        bio,
         joinedAt: nowIso(),
       };
       users = users.concat(user);
-      writeStore(STORAGE_KEYS.users, users);
+    } else {
+      user.name = displayName;
+      user.bio = bio;
     }
+    writeStore(STORAGE_KEYS.users, users);
 
     const nextSession = {
       userId: user.id,
@@ -192,7 +198,14 @@
       ]);
     }
 
-    if (!saved) writeStore(STORAGE_KEYS.saved, ["r_1"]);
+    syncSessionWithServer();
+    const bootstrapAfterSync = serverBootstrap();
+    if (saved === null) {
+      writeStore(
+        STORAGE_KEYS.saved,
+        bootstrapAfterSync.isAuthenticated ? [] : ["r_1"]
+      );
+    }
 
     if (!locations) {
       writeStore(STORAGE_KEYS.locations, [
@@ -203,6 +216,52 @@
     }
 
     syncSessionWithServer();
+  }
+
+  function normalizeServerRoute(r) {
+    if (!r || typeof r !== "object") return null;
+    return { ...r, id: String(r.id), authorId: r.authorId };
+  }
+
+  async function fetchSavedRouteIds() {
+    const bootstrap = serverBootstrap();
+    if (!bootstrap.isAuthenticated) {
+      return readStore(STORAGE_KEYS.saved, []);
+    }
+    try {
+      const data = await fetchJson("api/saved-route-ids");
+      const ids = Array.isArray(data?.savedIds) ? data.savedIds.map((id) => String(id)) : [];
+      writeStore(STORAGE_KEYS.saved, ids);
+      return ids;
+    } catch {
+      return readStore(STORAGE_KEYS.saved, []);
+    }
+  }
+
+  async function fetchSavedRoutes() {
+    const bootstrap = serverBootstrap();
+    if (!bootstrap.isAuthenticated) {
+      const allSaved = readStore(STORAGE_KEYS.saved, []);
+      const allRoutes = readStore(STORAGE_KEYS.routes, []);
+      const savedSet = new Set((allSaved || []).map(String));
+      return {
+        routes: allRoutes.filter((r) => savedSet.has(String(r.id))),
+        savedIds: allSaved,
+      };
+    }
+    try {
+      const data = await fetchJson("api/saved-routes");
+      const routes = (Array.isArray(data?.routes) ? data.routes : [])
+        .map(normalizeServerRoute)
+        .filter(Boolean);
+      const savedIds = Array.isArray(data?.savedIds)
+        ? data.savedIds.map((id) => String(id))
+        : routes.map((r) => r.id);
+      writeStore(STORAGE_KEYS.saved, savedIds);
+      return { routes, savedIds };
+    } catch {
+      return { routes: [], savedIds: [] };
+    }
   }
 
   function getSession() {
@@ -236,13 +295,13 @@
       .join("");
   }
 
-  function showToast(message, tone = "info") {
+  function showToast(message, tone = "info", durationMs = 2200) {
     const $toast = $("#toast");
     if ($toast.length === 0) return;
     const color = tone === "success" ? "bg-emerald-600" : tone === "error" ? "bg-rose-600" : "bg-slate-900";
     $toast.removeClass("bg-emerald-600 bg-rose-600 bg-slate-900").addClass(color).find("[data-toast-text]").text(message);
     $toast.addClass("is-visible");
-    global.setTimeout(() => $toast.removeClass("is-visible"), 2200);
+    global.setTimeout(() => $toast.removeClass("is-visible"), durationMs);
   }
 
   // Shared header behavior for authenticated pages.
@@ -404,8 +463,8 @@
       "Unknown";
     const initialsSource = author && author.name ? author.name : authorLabel;
     const avatarTone = userAvatarTone(author || { username: authorLabel });
-    const savedSet = new Set(savedIds || []);
-    const saved = savedSet.has(route.id);
+    const savedSet = new Set((savedIds || []).map(String));
+    const saved = savedSet.has(String(route.id));
     const likedIds = new Set(readStore("mv_liked_route_ids", []));
     const isLiked = likedIds.has(route.id);
     const themeKey = normalizeTheme(route.theme);
@@ -463,8 +522,8 @@
     const authorName = author
       ? author.name
       : String(route.authorUsername || "").trim() || "Unknown";
-    const savedSet = new Set(savedIds || []);
-    const saved = savedSet.has(route.id);
+    const savedSet = new Set((savedIds || []).map(String));
+    const saved = savedSet.has(String(route.id));
     const tags = (route.tags || []).slice(0, 3);
     const tagHtml = tags
       .map((t) => `<span class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">#${escapeHtml(t)}</span>`)
@@ -528,6 +587,9 @@
     topTheme,
     appUrl,
     fetchJson,
+    normalizeServerRoute,
+    fetchSavedRouteIds,
+    fetchSavedRoutes,
     routeDetailUrl,
     createRouteUrl,
     routeCardHtml,

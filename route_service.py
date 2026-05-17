@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from models import db, Route, RouteLocation, User
+from models import db, Route, RouteLocation, SavedRoute, User
 
 
 class RouteValidationError(Exception):
@@ -278,6 +278,16 @@ def list_routes_for_author(author_id: int) -> list[Route]:
     )
 
 
+def list_public_routes_for_author(author_id: int) -> list[Route]:
+    """Public profile: only routes this author has marked public."""
+    aid = _require_author_id(author_id)
+    return (
+        Route.query.filter_by(author_id=aid, is_public=True)
+        .order_by(Route.created_at.desc())
+        .all()
+    )
+
+
 def list_public_routes(limit: int = 500) -> list[Route]:
     """Dashboard / explore: all public routes, newest first (bounded for safety)."""
     lim = max(1, min(int(limit), 2000))
@@ -412,6 +422,60 @@ def delete_route_for_owner(route_id: int, owner_id: int) -> bool:
         raise RouteOwnershipError("Not allowed to delete this route.")
     try:
         db.session.delete(route)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return True
+
+
+def get_saved_route_ids_for_user(user_id: int) -> list[int]:
+    """Route ids the user has bookmarked, newest save first."""
+    uid = _require_author_id(user_id)
+    rows = (
+        SavedRoute.query.filter_by(user_id=uid)
+        .order_by(SavedRoute.created_at.desc())
+        .all()
+    )
+    return [int(row.route_id) for row in rows]
+
+
+def list_saved_routes_for_user(user_id: int) -> list[Route]:
+    """Full route rows for saved routes, preserving save order."""
+    route_ids = get_saved_route_ids_for_user(user_id)
+    if not route_ids:
+        return []
+    routes = Route.query.filter(Route.id.in_(route_ids)).all()
+    by_id = {int(r.id): r for r in routes}
+    return [by_id[rid] for rid in route_ids if rid in by_id]
+
+
+def save_route_for_user(user_id: int, route_id: int) -> bool:
+    """Bookmark a route the user is allowed to view. Returns False if not found."""
+    uid = _require_author_id(user_id)
+    route = get_route_for_viewer(int(route_id), uid)
+    if route is None:
+        return False
+    exists = SavedRoute.query.filter_by(user_id=uid, route_id=route.id).first()
+    if exists:
+        return True
+    db.session.add(SavedRoute(user_id=uid, route_id=route.id))
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return True
+
+
+def unsave_route_for_user(user_id: int, route_id: int) -> bool:
+    """Remove bookmark. Returns False if bookmark did not exist."""
+    uid = _require_author_id(user_id)
+    row = SavedRoute.query.filter_by(user_id=uid, route_id=int(route_id)).first()
+    if row is None:
+        return False
+    db.session.delete(row)
+    try:
         db.session.commit()
     except Exception:
         db.session.rollback()

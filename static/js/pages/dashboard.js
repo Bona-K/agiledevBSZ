@@ -7,40 +7,13 @@
   const C = window.AppCore;
   if (!C) return;
 
-  function normalizeServerRoute(r) {
-    if (!r || typeof r !== "object") return null;
-    return { ...r, id: String(r.id), authorId: r.authorId };
-  }
-
-  function showSkeletons(containerId, count = 3) {
-    const skeletons = Array(count)
-      .fill(0)
-      .map(
-        () => `
-      <div class="route-card animate-pulse rounded-2xl border border-slate-200 bg-white p-4">
-        <div class="h-4 w-2/3 rounded bg-slate-200 mb-3"></div>
-        <div class="h-3 w-full rounded bg-slate-100 mb-2"></div>
-        <div class="h-3 w-1/2 rounded bg-slate-100"></div>
-      </div>`
-      )
-      .join("");
-    $("#" + containerId).html(skeletons);
-  }
-
-  async function fetchPublicRoutes(q = "") {
-    const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    params.set("sort", "latest");
-    const data = await C.fetchJson("api/routes/public?" + params.toString());
-    return Array.isArray(data?.routes) ? data.routes.map(normalizeServerRoute).filter(Boolean) : [];
-  }
-
   async function mountDashboard() {
     C.requireAuthOrRedirect();
     C.mountNav();
 
     const users = C.readStore(C.STORAGE_KEYS.users, []);
     let saved = C.readStore(C.STORAGE_KEYS.saved, []);
+    const session = C.getSession();
     const boot = window.MYVIBE_BOOTSTRAP || {};
 
     // Show skeletons immediately
@@ -56,13 +29,11 @@
           C.fetchJson("api/routes/public"),
           C.fetchJson("api/my-routes"),
         ]);
-        routes = Array.isArray(pubData?.routes)
-          ? pubData.routes.map(normalizeServerRoute).filter(Boolean)
-          : [];
-        // Fetch saved route IDs (added by feature/edit_account_info)
-        if (typeof C.fetchSavedRouteIds === "function") {
-          saved = await C.fetchSavedRouteIds();
-        }
+        const rawPub = Array.isArray(pubData?.routes) ? pubData.routes : [];
+        const normalized = rawPub.map(C.normalizeServerRoute).filter(Boolean);
+        saved = await C.fetchSavedRouteIds();
+        routes = normalized;
+        statTotal = normalized.length;
         statMyRoutes = Array.isArray(myData?.routes) ? myData.routes.length : 0;
       } catch {
         C.showToast("Could not load live routes — showing demo data.", "error");
