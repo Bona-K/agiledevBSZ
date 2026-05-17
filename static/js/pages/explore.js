@@ -93,21 +93,34 @@
     $("#searchBtn").on("click", refreshFromApi);
     $("#sort").on("change", refreshFromApi);
 
-    $(".filter-chip").on("click", function onTagClick() {
-      activeTag = String($(this).attr("data-tag") || "");
-      $(".filter-chip").removeClass("is-selected");
+    function syncThemeChipUi() {
+      $(".theme-filter-chip").removeClass("is-selected");
+      if (!activeTheme) {
+        $(".theme-filter-chip").first().addClass("is-selected");
+        return;
+      }
+      $(".theme-filter-chip").each(function eachThemeChip() {
+        const v = String($(this).attr("data-theme") || "").trim().toLowerCase();
+        if (v === activeTheme) $(this).addClass("is-selected");
+      });
+    }
+
+    $(".tag-filter-chip").on("click", function onTagChipClick() {
+      activeTag = String($(this).attr("data-tag") || "").trim().toLowerCase();
+      $(".tag-filter-chip").removeClass("is-selected");
       $(this).addClass("is-selected");
       refreshFromApi();
     });
 
-    $(".vibeTile").on("click", function onVibeClick() {
-      const next = String($(this).attr("data-theme") || "");
+    $(".theme-filter-chip").on("click", function onThemeChipClick() {
+      const next = String($(this).attr("data-theme") || "").trim().toLowerCase();
       activeTheme = activeTheme === next ? "" : next;
       $(".vibeTile").removeClass("is-selected");
       if (activeTheme) $(`.vibeTile[data-theme='${activeTheme}']`).addClass("is-selected");
       refreshFromApi();
     });
 
+    syncThemeChipUi();
     $("#exploreLoadMore").on("click", () => {
       visibleCount += pageSize;
       renderGrid(allRoutes);

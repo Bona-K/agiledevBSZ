@@ -89,11 +89,11 @@
         .slice(0, 6);
 
       $("#popularRoutes").html(
-        popular.map((r) => C.routeCardHtml(r, users, saved, { showPhotoCover: true })).join("") ||
+        popular.map((r) => C.routeCardHtml(r, users, saved)).join("") ||
           C.emptyCard("No popular routes found.")
       );
       $("#latestRoutes").html(
-        latest.map((r) => C.routeCardHtml(r, users, saved, { showPhotoCover: true })).join("") ||
+        latest.map((r) => C.routeCardHtml(r, users, saved)).join("") ||
           C.emptyCard("No latest routes found.")
       );
     }

@@ -15,6 +15,7 @@ class User(db.Model):
     username     = db.Column(db.String(80), unique=True, nullable=False)
     email        = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    display_name = db.Column(db.String(120), default="")
     bio          = db.Column(db.Text, default="")
     joined_at    = db.Column(db.DateTime, default=datetime.utcnow)
     profile_img  = db.Column(db.String(300), default="")
@@ -35,6 +36,18 @@ class User(db.Model):
 
     # Routes owned by this user (author_id on Route).
     routes = db.relationship("Route", back_populates="author", lazy="dynamic")
+    saved_routes = db.relationship(
+        "SavedRoute",
+        back_populates="user",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+    completed_routes = db.relationship(
+        "CompletedRoute",
+        back_populates="user",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self):
         return f"<User {self.username}>"
@@ -108,6 +121,37 @@ class Route(db.Model):
     )
 
     author = db.relationship("User", back_populates="routes")
+    saved_by = db.relationship(
+        "SavedRoute",
+        back_populates="route",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+    completed_by = db.relationship(
+        "CompletedRoute",
+        back_populates="route",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+    likes = db.relationship(
+        "RouteLike",
+        back_populates="route",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+    ratings = db.relationship(
+        "RouteRating",
+        back_populates="route",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+    comments = db.relationship(
+        "RouteComment",
+        back_populates="route",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+        order_by="RouteComment.created_at",
+    )
     # Ordered stops; cascade delete keeps DB aligned when a route is removed later.
     locations = db.relationship(
         "RouteLocation",
@@ -148,3 +192,115 @@ class RouteLocation(db.Model):
 
     def __repr__(self):
         return f"<RouteLocation {self.id} route={self.route_id} #{self.stop_order}>"
+
+
+# ---------------------------------------------------------------------------
+# SavedRoute (user bookmarks a route)
+# ---------------------------------------------------------------------------
+
+class SavedRoute(db.Model):
+    __tablename__ = "saved_routes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    route_id = db.Column(db.Integer, db.ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User", back_populates="saved_routes")
+    route = db.relationship("Route", back_populates="saved_by")
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "route_id", name="unique_saved_route"),
+    )
+
+    def __repr__(self):
+        return f"<SavedRoute user={self.user_id} route={self.route_id}>"
+
+
+# ---------------------------------------------------------------------------
+# CompletedRoute (user marked a route as done)
+# ---------------------------------------------------------------------------
+
+
+class CompletedRoute(db.Model):
+    __tablename__ = "completed_routes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    route_id = db.Column(db.Integer, db.ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    completed_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User", back_populates="completed_routes")
+    route = db.relationship("Route", back_populates="completed_by")
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "route_id", name="unique_completed_route"),
+    )
+
+    def __repr__(self):
+        return f"<CompletedRoute user={self.user_id} route={self.route_id}>"
+
+
+# ---------------------------------------------------------------------------
+# RouteLike / RouteRating (one per user per route)
+# ---------------------------------------------------------------------------
+
+class RouteLike(db.Model):
+    __tablename__ = "route_likes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    route_id = db.Column(db.Integer, db.ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    route = db.relationship("Route", back_populates="likes")
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "route_id", name="unique_route_like"),
+    )
+
+    def __repr__(self):
+        return f"<RouteLike user={self.user_id} route={self.route_id}>"
+
+
+class RouteRating(db.Model):
+    __tablename__ = "route_ratings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    route_id = db.Column(db.Integer, db.ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    score = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    route = db.relationship("Route", back_populates="ratings")
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "route_id", name="unique_route_rating"),
+    )
+
+    def __repr__(self):
+        return f"<RouteRating user={self.user_id} route={self.route_id} score={self.score}>"
+
+
+# ---------------------------------------------------------------------------
+# RouteComment (many per route; author is commenter User)
+# ---------------------------------------------------------------------------
+
+
+class RouteComment(db.Model):
+    __tablename__ = "route_comments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    route_id = db.Column(db.Integer, db.ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    route = db.relationship("Route", back_populates="comments")
+    author_user = db.relationship("User", foreign_keys=[user_id])
+
+    def __repr__(self):
+        return f"<RouteComment {self.id} route={self.route_id} user={self.user_id}>"

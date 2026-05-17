@@ -62,7 +62,7 @@
 
     let locations = isEdit
       ? (editingRoute.locations || []).slice().sort((a, b) => a.order - b.order)
-      : [{ order: 1, time: "10:00", name: "Place name", desc: "Short description", parking: "unknown", photoUrl: null }];
+      : [];
     let locModalMode = "create";
     let editingLocIndex = -1;
     let locPendingPhotoUrl = null;
@@ -73,8 +73,7 @@
     let draftTimer = null;
     let isSubmitting = false;
 
-    const RT_COVER_STATUS_DEFAULT =
-      "Optional. Remove to use the default cover (same as Explore when no custom image).";
+    const RT_COVER_STATUS_DEFAULT = "";
 
     function currentRouteCoverPhotoUrl() {
       if (routeCoverRemoved) return null;
@@ -93,7 +92,7 @@
       if (url) {
         $("#rtCoverPreview").attr("src", url);
         $("#rtCoverPreviewWrap").removeClass("hidden");
-        $("#rtCoverStatus").text("Cover set. Remove to use the default.");
+        $("#rtCoverStatus").text("");
       } else {
         $("#rtCoverPreview").attr("src", "");
         $("#rtCoverPreviewWrap").addClass("hidden");
@@ -166,8 +165,43 @@
       return "Unknown";
     }
 
+    const INVALID_STOP_NAMES = new Set(["place name"]);
+
+    function normalizeStopName(name) {
+      return String(name || "").trim();
+    }
+
+    function isValidStopName(name) {
+      const trimmed = normalizeStopName(name);
+      if (!trimmed) return false;
+      if (INVALID_STOP_NAMES.has(trimmed.toLowerCase())) return false;
+      return true;
+    }
+
+    function sortLocationsByOrder() {
+      locations.sort((a, b) => Number(a.order) - Number(b.order));
+    }
+
     function renumber() {
+      // Assign order from current array positions only — do not sort here or ↑↓ swaps are undone.
       locations = locations.map((l, i) => ({ ...l, order: i + 1 }));
+    }
+
+    function normalizeThemeForSave(raw) {
+      return String(raw || "").trim().toLowerCase();
+    }
+
+    function parseTagsForSave(tagsRaw) {
+      const seen = new Set();
+      const out = [];
+      for (const part of String(tagsRaw || "").split(",")) {
+        const t = part.trim().replaceAll("#", "").trim().toLowerCase();
+        if (!t || seen.has(t)) continue;
+        seen.add(t);
+        out.push(t);
+        if (out.length >= 8) break;
+      }
+      return out;
     }
 
     function clearRouteFieldErrors() {
@@ -298,12 +332,6 @@
       const title = String($("#rtTitle").val() || "").trim() || "(untitled)";
       const theme = String($("#rtTheme").val() || "").trim() || "(no theme)";
       const desc = String($("#rtDesc").val() || "").trim() || "No description yet.";
-      const tags = String($("#rtTags").val() || "")
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean)
-        .slice(0, 5)
-        .join(" ");
       const visibility = $("#rtPublic").is(":checked") ? "Public" : "Private";
       const coverUrl = currentRouteCoverPhotoUrl();
       const coverThumb = coverUrl
@@ -314,24 +342,26 @@
          <div class="mt-1 text-sm font-semibold text-slate-900">${C.escapeHtml(title)}</div>
          <div class="mt-2 text-sm text-slate-700">${C.escapeHtml(desc)}</div>
          ${coverThumb}
-         <div class="mt-2 text-xs text-slate-600">${C.escapeHtml(tags || "No tags")} · ${locations.length} locations</div>`
+         <div class="mt-2 text-xs text-slate-600">${locations.length} locations</div>`
       );
     }
 
     function renderSavedLocationSelect() {
       const options = (savedLocations || [])
-        .map(
-          (loc) =>
-            `<option value="${C.escapeHtml(loc.id)}">${C.escapeHtml(loc.name)} · ${C.escapeHtml(mapParkingLabel(loc.parking))}</option>`
-        )
+        .map((loc) => `<option value="${C.escapeHtml(loc.id)}">${C.escapeHtml(loc.name)}</option>`)
         .join("");
       $("#savedLocationSelect").html(options || `<option value="">No saved locations</option>`);
     }
 
+    function locationIndexFromBtn($btn) {
+      const idx = Number($btn.closest("button").attr("data-loc-idx"));
+      if (!Number.isFinite(idx) || idx < 0 || idx >= locations.length) return -1;
+      return idx;
+    }
+
     function renderLocs() {
+      sortLocationsByOrder();
       const html = locations
-        .slice()
-        .sort((a, b) => a.order - b.order)
         .map((loc, idx) => {
           const thumb = loc.photoUrl
             ? `<div class="mt-2"><img src="${C.escapeHtml(loc.photoUrl)}" alt="" class="max-h-24 rounded-lg border border-slate-200 object-cover" loading="lazy" /></div>`
@@ -346,22 +376,23 @@
                   ${thumb}
                 </div>
                 <div class="flex flex-col gap-2">
-                  <button data-edit="${idx}" class="btnEdit rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">Edit</button>
-                  <button data-up="${idx}" class="btnUp rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↑</button>
-                  <button data-down="${idx}" class="btnDown rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↓</button>
-                  <button data-del="${idx}" class="btnDel rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700" type="button">Delete</button>
+                  <button data-loc-idx="${idx}" class="btnEdit rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">Edit</button>
+                  <button data-loc-idx="${idx}" class="btnUp rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↑</button>
+                  <button data-loc-idx="${idx}" class="btnDown rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50" type="button">↓</button>
+                  <button data-loc-idx="${idx}" class="btnDel rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700" type="button">Delete</button>
                 </div>
               </div>
             </li>
           `;
         })
         .join("");
-      $("#locList").html(html || C.emptyCard("No locations yet. Add one from the button above."));
+      $("#locList").html(html || C.emptyCard("No locations yet."));
       renderPreview();
       bumpEditDirty();
     }
 
     function openLocModal(modeName, idx) {
+      sortLocationsByOrder();
       locModalMode = modeName;
       editingLocIndex = typeof idx === "number" ? idx : -1;
       clearLocModalErrors();
@@ -381,7 +412,7 @@
         locPendingPhotoUrl = source.photoUrl;
         $("#locPhotoPreview").attr("src", source.photoUrl);
         $("#locPhotoPreviewWrap").removeClass("hidden");
-        $("#locPhotoStatus").text("Existing photo kept unless you pick a new file.");
+        $("#locPhotoStatus").text("");
       }
 
       // Prep location-picker (map + autocomplete + rating).
@@ -429,35 +460,50 @@
       clearRouteFieldErrors();
       let ok = true;
       const title = String($("#rtTitle").val() || "").trim();
-      const theme = String($("#rtTheme").val() || "").trim();
+      const theme = normalizeThemeForSave($("#rtTheme").val());
       if (!title) {
         $("#errRtTitle").removeClass("hidden").text("Title is required.");
         $("#rtTitle").addClass("border-rose-300 ring-2 ring-rose-200");
         ok = false;
       }
       if (!theme) {
-        $("#errRtTheme").removeClass("hidden").text("Please choose a theme.");
+        $("#errRtTheme").removeClass("hidden").text("Theme is required.");
         $("#rtTheme").addClass("border-rose-300 ring-2 ring-rose-200");
         ok = false;
       }
+      if (!validateAllStops()) ok = false;
+      return ok;
+    }
+
+    function validateAllStops() {
+      sortLocationsByOrder();
+      const issues = [];
       if (!locations.length) {
         $("#errRtLocations").removeClass("hidden").text("Add at least one location.");
-        ok = false;
+        return false;
       }
-      return ok;
+      locations.forEach((loc, i) => {
+        const time = String(loc.time || "").trim();
+        if (!isValidStopName(loc.name)) {
+          issues.push(`Stop ${i + 1}: location name is required.`);
+        }
+        if (!time) {
+          issues.push(`Stop ${i + 1}: time is required.`);
+        }
+      });
+      if (!issues.length) return true;
+      const summary = issues.slice(0, 4).join(" ");
+      $("#errLocList").removeClass("hidden").text(summary + (issues.length > 4 ? " …" : ""));
+      $("#errRtLocations").removeClass("hidden").text("Fix each stop before saving.");
+      return false;
     }
 
     function buildCreatePayload() {
       const title = String($("#rtTitle").val() || "").trim();
-      const theme = String($("#rtTheme").val() || "").trim();
+      const theme = normalizeThemeForSave($("#rtTheme").val());
       const desc = String($("#rtDesc").val() || "").trim();
-      const tagsRaw = String($("#rtTags").val() || "");
       const isPublic = Boolean($("#rtPublic").is(":checked"));
-      const tags = tagsRaw
-        .split(",")
-        .map((t) => t.trim().replaceAll("#", ""))
-        .filter(Boolean)
-        .slice(0, 8);
+      const tags = parseTagsForSave($("#rtTags").val());
       const ordered = locations.slice().sort((a, b) => a.order - b.order);
       return {
         title,
@@ -499,9 +545,14 @@
     }
 
     if (isEdit) {
+      renumber();
       $("#rtTitle").val(editingRoute.title);
       $("#rtTheme").val(editingRoute.theme);
-      $("#rtTags").val((editingRoute.tags || []).join(","));
+      $("#rtTags").val(
+        Array.isArray(editingRoute.tags)
+          ? editingRoute.tags.join(",")
+          : String(editingRoute.tags || "")
+      );
       $("#rtDesc").val(editingRoute.description);
       $("#rtPublic").prop("checked", Boolean(editingRoute.isPublic));
       $("h1").first().text("Edit route");
@@ -523,7 +574,7 @@
       $("#locPhotoPreview").attr("src", "");
       $("#locPhotoPreviewWrap").addClass("hidden");
       $("#errLocPhoto").addClass("hidden").text("");
-      $("#locPhotoStatus").text("Photo removed.");
+      $("#locPhotoStatus").text("");
     });
 
     $("#btnRemoveRtCover").on("click", () => {
@@ -544,7 +595,7 @@
         const url = await uploadPlacePhoto(file);
         routeCoverPendingUrl = url;
         routeCoverRemoved = false;
-        $("#rtCoverStatus").text("Cover attached.");
+        $("#rtCoverStatus").text("");
         syncRouteCoverPreview();
         renderPreview();
         scheduleDraftSave();
@@ -568,7 +619,7 @@
         locPhotoRemoved = false;
         $("#locPhotoPreview").attr("src", url);
         $("#locPhotoPreviewWrap").removeClass("hidden");
-        $("#locPhotoStatus").text("Photo attached.");
+        $("#locPhotoStatus").text("");
       } catch (err) {
         $("#errLocPhoto").removeClass("hidden").text(err.message || "Upload failed.");
         $("#locPhotoStatus").text("");
@@ -625,12 +676,14 @@
           : (prev && prev.rating != null ? prev.rating : null),
       };
 
-      if (locModalMode === "edit" && editingLocIndex >= 0) locations[editingLocIndex] = loc;
+      const wasEdit = locModalMode === "edit" && editingLocIndex >= 0;
+      if (wasEdit) locations[editingLocIndex] = loc;
       else locations.push(loc);
       renumber();
       renderLocs();
       closeLocModal();
       scheduleDraftSave();
+      C.showToast(wasEdit ? "Location updated." : "Location added.", "success");
 
       const exists = savedLocations.some((x) => x.name.toLowerCase() === name.toLowerCase());
       if (!exists) {
@@ -646,38 +699,61 @@
       }
     });
 
+    $("#locName").on("input", function () {
+      $(this).removeClass("border-rose-300");
+      $("#errLocName").addClass("hidden").text("");
+    });
+    $("#locTime").on("input", function () {
+      $(this).removeClass("border-rose-300");
+      $("#errLocTime").addClass("hidden").text("");
+    });
+
     $("#locList").on("click", ".btnEdit", function () {
-      const idx = Number($(this).attr("data-edit"));
-      if (idx < 0 || idx >= locations.length) return;
+      const idx = locationIndexFromBtn($(this));
+      if (idx < 0) return;
       openLocModal("edit", idx);
     });
     $("#locList").on("click", ".btnDel", function () {
-      const idx = Number($(this).attr("data-del"));
-      if (idx < 0 || idx >= locations.length) return;
+      const idx = locationIndexFromBtn($(this));
+      if (idx < 0) return;
+      const stop = locations[idx];
+      const label = stop && stop.name ? `"${stop.name}"` : "this stop";
+      if (!window.confirm(`Remove ${label}? This cannot be undone.`)) return;
       locations.splice(idx, 1);
       renumber();
       renderLocs();
       scheduleDraftSave();
+      C.showToast("Location removed.", "success");
     });
     $("#locList").on("click", ".btnUp", function () {
-      const idx = Number($(this).attr("data-up"));
-      if (idx <= 0) return;
+      const idx = locationIndexFromBtn($(this));
+      if (idx < 0) return;
+      if (idx <= 0) {
+        C.showToast("Already at the top.", "info");
+        return;
+      }
       const tmp = locations[idx - 1];
       locations[idx - 1] = locations[idx];
       locations[idx] = tmp;
       renumber();
       renderLocs();
       scheduleDraftSave();
+      C.showToast("Stop moved up.", "success");
     });
     $("#locList").on("click", ".btnDown", function () {
-      const idx = Number($(this).attr("data-down"));
-      if (idx >= locations.length - 1) return;
+      const idx = locationIndexFromBtn($(this));
+      if (idx < 0) return;
+      if (idx >= locations.length - 1) {
+        C.showToast("Already at the bottom.", "info");
+        return;
+      }
       const tmp = locations[idx + 1];
       locations[idx + 1] = locations[idx];
       locations[idx] = tmp;
       renumber();
       renderLocs();
       scheduleDraftSave();
+      C.showToast("Stop moved down.", "success");
     });
 
     $("#btnAddSavedLoc").on("click", () => {
@@ -695,6 +771,7 @@
       renumber();
       renderLocs();
       scheduleDraftSave();
+      C.showToast("Location added.", "success");
     });
 
     $("#rtTitle, #rtTheme, #rtTags, #rtDesc").on("input", () => {
@@ -721,15 +798,13 @@
       $("#rtTitle").val("");
       $("#rtTags").val("");
       $("#rtDesc").val("");
-      $("#rtTheme").prop("selectedIndex", 0);
+      $("#rtTheme").val("");
       $("#rtPublic").prop("checked", true);
       routeCoverPendingUrl = null;
       routeCoverRemoved = false;
       $("#rtCover").val("");
       syncRouteCoverPreview();
-      locations = [
-        { order: 1, time: "10:00", name: "Place name", desc: "Short description", parking: "unknown", photoUrl: null },
-      ];
+      locations = [];
       renderLocs();
       renderPreview();
       C.showToast("Draft discarded.", "info");
@@ -782,15 +857,10 @@
           return;
         }
         const title = String($("#rtTitle").val() || "").trim();
-        const theme = String($("#rtTheme").val() || "").trim();
+        const theme = normalizeThemeForSave($("#rtTheme").val());
         const desc = String($("#rtDesc").val() || "").trim();
-        const tagsRaw = String($("#rtTags").val() || "");
         const isPublic = Boolean($("#rtPublic").is(":checked"));
-        const tags = tagsRaw
-          .split(",")
-          .map((t) => t.trim().replaceAll("#", ""))
-          .filter(Boolean)
-          .slice(0, 8);
+        const tags = parseTagsForSave($("#rtTags").val());
         editingRoute.title = title;
         editingRoute.theme = theme;
         editingRoute.description = desc || "No description yet (mock).";

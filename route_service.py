@@ -9,7 +9,20 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from models import db, Route, RouteLocation, User
+from sqlalchemy import func
+from sqlalchemy.orm import joinedload
+
+from models import (
+    CompletedRoute,
+    db,
+    Route,
+    RouteComment,
+    RouteLike,
+    RouteLocation,
+    RouteRating,
+    SavedRoute,
+    User,
+)
 
 
 class RouteValidationError(Exception):
@@ -71,15 +84,25 @@ def _prepare_create_route_data(
         errors["title"] = "Title is required."
 
     description = str(payload.get("description") or "").strip()
-    theme = str(payload.get("theme") or "").strip()
+    theme = str(payload.get("theme") or "").strip().lower()
     if not theme:
-        errors["theme"] = "Please choose a theme."
+        errors["theme"] = "Theme is required."
+    elif len(theme) > 80:
+        errors["theme"] = "Theme must be 80 characters or less."
 
     tags = payload.get("tags") or []
     if not isinstance(tags, list):
         errors["tags"] = "Tags must be a list."
     else:
-        tags = [str(t).strip() for t in tags if str(t).strip()]
+        seen: set[str] = set()
+        norm_tags: list[str] = []
+        for raw in tags:
+            s = str(raw).strip().replace("#", "").strip().lower()
+            if not s or s in seen:
+                continue
+            seen.add(s)
+            norm_tags.append(s)
+        tags = norm_tags[:8]
 
     is_public = bool(payload.get("isPublic", True))
 
@@ -278,6 +301,16 @@ def list_routes_for_author(author_id: int) -> list[Route]:
     )
 
 
+def list_public_routes_for_author(author_id: int) -> list[Route]:
+    """Public profile: only routes this author has marked public."""
+    aid = _require_author_id(author_id)
+    return (
+        Route.query.filter_by(author_id=aid, is_public=True)
+        .order_by(Route.created_at.desc())
+        .all()
+    )
+
+
 def list_public_routes(limit: int = 500) -> list[Route]:
     """Dashboard / explore: all public routes, newest first (bounded for safety)."""
     lim = max(1, min(int(limit), 2000))
@@ -419,21 +452,296 @@ def delete_route_for_owner(route_id: int, owner_id: int) -> bool:
     return True
 
 
-def serialize_route_for_client(route: Route) -> dict[str, Any]:
+def get_saved_route_ids_for_user(user_id: int) -> list[int]:
+    """Route ids the user has bookmarked, newest save first."""
+    uid = _require_author_id(user_id)
+    rows = (
+        SavedRoute.query.filter_by(user_id=uid)
+        .order_by(SavedRoute.created_at.desc())
+        .all()
+    )
+    return [int(row.route_id) for row in rows]
+
+
+def list_saved_routes_for_user(user_id: int) -> list[Route]:
+    """Full route rows for saved routes, preserving save order."""
+    route_ids = get_saved_route_ids_for_user(user_id)
+    if not route_ids:
+        return []
+    routes = Route.query.filter(Route.id.in_(route_ids)).all()
+    by_id = {int(r.id): r for r in routes}
+    return [by_id[rid] for rid in route_ids if rid in by_id]
+
+
+def save_route_for_user(user_id: int, route_id: int) -> bool:
+    """Bookmark a route the user is allowed to view. Returns False if not found."""
+    uid = _require_author_id(user_id)
+    route = get_route_for_viewer(int(route_id), uid)
+    if route is None:
+        return False
+    exists = SavedRoute.query.filter_by(user_id=uid, route_id=route.id).first()
+    if exists:
+        return True
+    db.session.add(SavedRoute(user_id=uid, route_id=route.id))
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return True
+
+
+def unsave_route_for_user(user_id: int, route_id: int) -> bool:
+    """Remove bookmark. Returns False if bookmark did not exist."""
+    uid = _require_author_id(user_id)
+    row = SavedRoute.query.filter_by(user_id=uid, route_id=int(route_id)).first()
+    if row is None:
+        return False
+    db.session.delete(row)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return True
+
+
+def get_completed_route_ids_for_user(user_id: int) -> list[int]:
+    """Route ids the user marked completed, most recent first."""
+    uid = _require_author_id(user_id)
+    rows = (
+        CompletedRoute.query.filter_by(user_id=uid)
+        .order_by(CompletedRoute.completed_at.desc())
+        .all()
+    )
+    return [int(row.route_id) for row in rows]
+
+
+def list_completed_routes_for_user(user_id: int) -> list[Route]:
+    """Full route rows for completions, preserving completion order."""
+    route_ids = get_completed_route_ids_for_user(user_id)
+    if not route_ids:
+        return []
+    routes = Route.query.filter(Route.id.in_(route_ids)).all()
+    by_id = {int(r.id): r for r in routes}
+    return [by_id[rid] for rid in route_ids if rid in by_id]
+
+
+def mark_route_completed_for_user(user_id: int, route_id: int) -> bool:
+    """Mark a viewable route complete for this user. Returns False if route missing."""
+    uid = _require_author_id(user_id)
+    route = get_route_for_viewer(int(route_id), uid)
+    if route is None:
+        return False
+    exists = CompletedRoute.query.filter_by(user_id=uid, route_id=route.id).first()
+    if exists:
+        return True
+    db.session.add(CompletedRoute(user_id=uid, route_id=route.id))
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return True
+
+
+def unmark_route_completed_for_user(user_id: int, route_id: int) -> bool:
+    """Remove completion record. Returns False if none."""
+    uid = _require_author_id(user_id)
+    row = CompletedRoute.query.filter_by(user_id=uid, route_id=int(route_id)).first()
+    if row is None:
+        return False
+    db.session.delete(row)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return True
+
+
+def user_has_completed_route(user_id: int, route_id: int) -> bool:
+    return (
+        CompletedRoute.query.filter_by(
+            user_id=int(user_id), route_id=int(route_id)
+        ).first()
+        is not None
+    )
+
+
+# ---------------------------------------------------------------------------
+# Route comments (viewer must be allowed to see the route)
+# ---------------------------------------------------------------------------
+
+_COMMENT_MAX_LEN = 4000
+
+
+def _serialize_route_comment(row: RouteComment) -> dict[str, Any]:
+    u = row.author_user
+    if u is not None:
+        label = (u.display_name or "").strip() or u.username or "Unknown"
+        username = str(u.username or "")
+    else:
+        label = "Unknown"
+        username = ""
+    return {
+        "id": row.id,
+        "author": label,
+        "authorUsername": username,
+        "text": row.body,
+        "createdAt": _iso_utc_z(row.created_at),
+    }
+
+
+def list_route_comments(route_id: int, viewer_user_id: Optional[int]) -> list[dict[str, Any]]:
+    """Oldest first. Raises ValueError if route not visible to viewer."""
+    route = get_route_for_viewer(int(route_id), viewer_user_id)
+    if route is None:
+        raise ValueError("Route not found.")
+    rows = (
+        RouteComment.query.options(joinedload(RouteComment.author_user))
+        .filter_by(route_id=route.id)
+        .order_by(RouteComment.created_at.asc())
+        .all()
+    )
+    return [_serialize_route_comment(r) for r in rows]
+
+
+def add_route_comment(user_id: int, route_id: int, text: str) -> dict[str, Any]:
+    """Persist one comment. Raises ValueError if route not visible; RouteValidationError on bad text."""
+    uid = _require_author_id(user_id)
+    route = get_route_for_viewer(int(route_id), uid)
+    if route is None:
+        raise ValueError("Route not found.")
+
+    body = (text or "").strip()
+    if not body:
+        raise RouteValidationError({"text": "Comment cannot be empty."})
+    if len(body) > _COMMENT_MAX_LEN:
+        raise RouteValidationError(
+            {"text": f"Comment is too long (max {_COMMENT_MAX_LEN} characters)."}
+        )
+
+    row = RouteComment(route_id=route.id, user_id=uid, body=body)
+    db.session.add(row)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    row = (
+        RouteComment.query.options(joinedload(RouteComment.author_user))
+        .filter_by(id=row.id)
+        .first()
+    )
+    if row is None:
+        raise RuntimeError("Comment row missing after insert.")
+    return _serialize_route_comment(row)
+
+
+def count_likes_for_route(route_id: int) -> int:
+    return int(RouteLike.query.filter_by(route_id=int(route_id)).count())
+
+
+def average_rating_for_route(route_id: int) -> Optional[float]:
+    avg = (
+        db.session.query(func.avg(RouteRating.score))
+        .filter(RouteRating.route_id == int(route_id))
+        .scalar()
+    )
+    if avg is None:
+        return None
+    return round(float(avg), 1)
+
+
+def user_has_liked_route(user_id: int, route_id: int) -> bool:
+    return (
+        RouteLike.query.filter_by(user_id=int(user_id), route_id=int(route_id)).first()
+        is not None
+    )
+
+
+def get_user_route_rating(user_id: int, route_id: int) -> Optional[int]:
+    row = RouteRating.query.filter_by(user_id=int(user_id), route_id=int(route_id)).first()
+    return int(row.score) if row is not None else None
+
+
+def toggle_route_like(user_id: int, route_id: int) -> tuple[bool, int]:
+    """
+    Like or unlike a route the user may view.
+
+    Returns (liked, likes_count). Raises ValueError when route is not visible.
+    """
+    uid = _require_author_id(user_id)
+    route = get_route_for_viewer(int(route_id), uid)
+    if route is None:
+        raise ValueError("Route not found.")
+
+    row = RouteLike.query.filter_by(user_id=uid, route_id=route.id).first()
+    if row is not None:
+        db.session.delete(row)
+        liked = False
+    else:
+        db.session.add(RouteLike(user_id=uid, route_id=route.id))
+        liked = True
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return liked, count_likes_for_route(route.id)
+
+
+def set_route_rating(user_id: int, route_id: int, score: int) -> tuple[Optional[float], int]:
+    """
+    Create or update a 1–5 rating for a visible route.
+
+    Returns (average_rating, user_rating). Raises ValueError when route is not visible.
+    """
+    uid = _require_author_id(user_id)
+    route = get_route_for_viewer(int(route_id), uid)
+    if route is None:
+        raise ValueError("Route not found.")
+
+    rating_score = int(score)
+    if rating_score < 1 or rating_score > 5:
+        raise RouteValidationError({"rating": "Rating must be between 1 and 5."})
+
+    row = RouteRating.query.filter_by(user_id=uid, route_id=route.id).first()
+    if row is None:
+        db.session.add(RouteRating(user_id=uid, route_id=route.id, score=rating_score))
+    else:
+        row.score = rating_score
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return average_rating_for_route(route.id), rating_score
+
+
+def serialize_route_for_client(
+    route: Route, viewer_user_id: Optional[int] = None
+) -> dict[str, Any]:
     """
     One JSON-shaped dict for create response, detail, edit prefill, and listings.
 
     Mirrors static/js/pages/create-route.js and seed routes in interactions.js.
+    rating is null when no one has rated; userLiked/userRating/userCompleted when viewer is known.
     """
     locs = sorted(route.locations, key=lambda x: x.stop_order)
     author_username = ""
+    author_display_name = ""
     if getattr(route, "author", None) is not None:
         author_username = str(route.author.username or "")
+        author_display_name = (route.author.display_name or "").strip() or author_username
 
-    return {
+    rid = int(route.id)
+    payload: dict[str, Any] = {
         "id": route.id,
         "authorId": route.author_id,
         "authorUsername": author_username,
+        "authorDisplayName": author_display_name,
         "title": route.title,
         "description": route.description,
         "theme": route.theme,
@@ -442,10 +750,8 @@ def serialize_route_for_client(route: Route) -> dict[str, Any]:
         "photoUrl": getattr(route, "cover_photo_url", None) or None,
         "createdAt": _iso_utc_z(route.created_at),
         "updatedAt": _iso_utc_z(route.updated_at),
-        "likes": 0,
-        # mock data for testing
-        "rating": 4.0,
-        # mock data for testing
+        "likes": count_likes_for_route(rid),
+        "rating": average_rating_for_route(rid),
         "locations": [
             {
                 "order": loc.stop_order,
@@ -463,4 +769,10 @@ def serialize_route_for_client(route: Route) -> dict[str, Any]:
             for loc in locs
         ],
     }
-    
+    if viewer_user_id is not None:
+        vid = int(viewer_user_id)
+        payload["userLiked"] = user_has_liked_route(vid, rid)
+        payload["userRating"] = get_user_route_rating(vid, rid)
+        payload["userCompleted"] = user_has_completed_route(vid, rid)
+    return payload
+
