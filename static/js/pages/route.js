@@ -113,13 +113,9 @@
 
     const users = C.readStore(C.STORAGE_KEYS.users, []);
     const routes = C.readStore(C.STORAGE_KEYS.routes, []);
-    let saved = C.readStore(C.STORAGE_KEYS.saved, []);
+    const saved = C.readStore(C.STORAGE_KEYS.saved, []);
     const session = C.getSession();
     const boot = window.MYVIBE_BOOTSTRAP || {};
-
-    if (boot.isAuthenticated && C.fetchSavedRouteIds) {
-      saved = await C.fetchSavedRouteIds();
-    }
 
     const pathParts = window.location.pathname.split("/").filter(Boolean);
     const pathRouteId = pathParts[0] === "route" ? decodeURIComponent(pathParts[1] || "") : "";
@@ -204,7 +200,7 @@
     renderSimilarRoutes(route, routes);
     renderComments(route.id);
 
-    const savedSet = new Set((saved || []).map(String));
+    const savedSet = new Set(saved || []);
     C.updateRouteButtons(route, savedSet);
     let isOwner = false;
     if (numericId && boot.userId != null) {
@@ -223,36 +219,14 @@
       C.showToast("Liked (mock).", "success");
     });
 
-    $("#btnSave").on("click", async () => {
-      const routeKey = String(route.id);
-      if (numericId && boot.isAuthenticated) {
-        const wasSaved = savedSet.has(routeKey);
-        try {
-          if (wasSaved) {
-            await C.fetchJson(`api/routes/${encodeURIComponent(routeKey)}/save`, { method: "DELETE" });
-          } else {
-            await C.fetchJson(`api/routes/${encodeURIComponent(routeKey)}/save`, { method: "POST" });
-          }
-          saved = await C.fetchSavedRouteIds();
-          const nextSet = new Set(saved.map(String));
-          savedSet.clear();
-          nextSet.forEach((id) => savedSet.add(id));
-          C.updateRouteButtons(route, savedSet);
-          C.showToast(wasSaved ? "Removed from saved." : "Route saved.", "success");
-        } catch (err) {
-          C.showToast(err.body?.error || err.message || "Could not update saved routes.", "error");
-        }
-        return;
-      }
-      const set = new Set((C.readStore(C.STORAGE_KEYS.saved, []) || []).map(String));
-      if (set.has(routeKey)) set.delete(routeKey);
-      else set.add(routeKey);
+    $("#btnSave").on("click", () => {
+      const set = new Set(C.readStore(C.STORAGE_KEYS.saved, []));
+      if (set.has(route.id)) set.delete(route.id);
+      else set.add(route.id);
       const arr = Array.from(set);
       C.writeStore(C.STORAGE_KEYS.saved, arr);
-      savedSet.clear();
-      arr.forEach((id) => savedSet.add(id));
-      C.updateRouteButtons(route, savedSet);
-      C.showToast(savedSet.has(routeKey) ? "Saved (mock)." : "Removed from saved (mock).", "success");
+      C.updateRouteButtons(route, set);
+      C.showToast(set.has(route.id) ? "Saved (mock)." : "Removed from saved (mock).", "success");
     });
 
     $("#btnShare").on("click", async () => {

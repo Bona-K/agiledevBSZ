@@ -1,7 +1,7 @@
 /* global $, window */
 
 // Page: profile.html
-// Features: profile info, tab switching, my/saved route lists, delete actions.
+// Features: profile info, tab switching, my/saved route lists, saved locations, delete actions.
 (function profilePage() {
   const C = window.AppCore;
   if (!C) return;
@@ -11,14 +11,21 @@
     C.seedIfEmpty();
     C.mountNav();
 
+    const session = C.getSession();
     const users = C.readStore(C.STORAGE_KEYS.users, []);
+    const savedLocations = C.readStore(C.STORAGE_KEYS.locations, []);
+    const me = users.find((u) => u.id === session.userId) || users[0];
+
+    $("#profileName").text(me.name);
+    $("#profileUsername").text("@" + me.username);
+    $("#profileBio").text(me.bio);
+    $("#profileInitials").text(C.initials(me.name));
+    $("#profileJoined").text(C.formatDate(me.joinedAt));
 
     async function loadMyRoutes() {
       try {
         const data = await C.fetchJson("api/my-routes");
-        return Array.isArray(data?.routes)
-          ? data.routes.map(C.normalizeServerRoute).filter(Boolean)
-          : [];
+        return Array.isArray(data?.routes) ? data.routes : [];
       } catch (err) {
         C.showToast("Could not load your routes.", "error");
         return [];
@@ -27,18 +34,29 @@
 
     async function renderPanels() {
       const myRoutes = await loadMyRoutes();
-      const { routes: savedRoutes, savedIds } = await C.fetchSavedRoutes();
-
+      const allSaved = C.readStore(C.STORAGE_KEYS.saved, []);
       $("#myRoutesGrid").html(
-        myRoutes.map((r) => C.routeManageCardHtml(r, users, savedIds)).join("") ||
+        myRoutes.map((r) => C.routeManageCardHtml(r, users, allSaved)).join("") ||
           C.emptyCard("You have not created any routes yet.")
       );
 
-      $("#savedRoutesGrid").html(
-        savedRoutes.map((r) => C.routeCardHtml(r, users, savedIds)).join("") ||
-          C.emptyCard("No saved routes yet.")
-      );
+      const savedSet = new Set(allSaved || []);
+      const allRoutes = C.readStore(C.STORAGE_KEYS.routes, []);
+      const savedRoutes = allRoutes.filter((r) => savedSet.has(r.id));
+      $("#savedRoutesGrid").html(savedRoutes.map((r) => C.routeCardHtml(r, users, allSaved)).join("") || C.emptyCard("No saved routes yet."));
 
+      const locationHtml = (savedLocations || [])
+        .map((loc) => {
+          return `
+            <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 shadow-sm backdrop-blur">
+              <div class="text-sm font-semibold text-slate-900">${C.escapeHtml(loc.name)}</div>
+              <div class="mt-1 text-xs font-semibold text-slate-600">${C.escapeHtml(loc.time || "—")} · Parking ${C.escapeHtml(loc.parking || "unknown")}</div>
+              <div class="mt-2 text-sm text-slate-700">${C.escapeHtml(loc.desc || "")}</div>
+            </div>
+          `;
+        })
+        .join("");
+      $("#myLocationsGrid").html(locationHtml || C.emptyCard("No saved locations yet."));
     }
 
     function setTab(name) {
@@ -64,6 +82,8 @@
           else C.showToast(err.body?.error || err.message || "Could not delete route.", "error");
           return;
         }
+        const nextSaved = C.readStore(C.STORAGE_KEYS.saved, []).filter((id) => String(id) !== routeId);
+        C.writeStore(C.STORAGE_KEYS.saved, nextSaved);
         await renderPanels();
         C.showToast("Route deleted.", "success");
         return;
