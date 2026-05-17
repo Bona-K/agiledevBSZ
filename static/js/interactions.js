@@ -537,5 +537,19 @@
 
   $(document).ready(() => {
     bindRouteLikeInteractions();
+    // Logo click routing: when clicked from landing, login, or signup -> landing page;
+    // from any other authenticated page -> dashboard.
+    $("body")
+      .off("click.siteLogo")
+      .on("click.siteLogo", ".site-logo", function (e) {
+        e.preventDefault();
+        const page = String(document.body.dataset.page || "").trim();
+        const landingPages = ["home", "login", "signup"];
+        if (landingPages.includes(page)) {
+          global.location.href = appUrl("");
+        } else {
+          global.location.href = appUrl("dashboard");
+        }
+      });
   });
 })(window);
