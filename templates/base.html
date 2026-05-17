@@ -13,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
     <!-- Glass-friendly font -->
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="icon" href="{{ url_for('static', filename='myvibe_logo.svg') }}" type="image/svg+xml">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
 
     <!-- Leaflet (interactive maps) -->
@@ -42,7 +43,7 @@
       <div class="mx-auto flex w-[94vw] max-w-[1600px] items-center justify-between px-6 py-4">
 
         <!-- Brand -->
-        <a href="{{ url_for('index') }}" class="flex items-center">
+        <a href="{% if current_user %}{{ url_for('dashboard') }}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
           <img src="{{ url_for('static', filename='myvibe_logo.svg') }}" alt="MyVibe" class="h-10 w-auto" />
         </a>
 
@@ -65,6 +66,21 @@
             Profile
           </a>
 
+          <!-- Messages with unread badge -->
+          {% if current_user %}
+          <a href="{{ url_for('messages_inbox') }}"
+             class="relative rounded-xl px-3 py-2 text-sm font-semibold {% if active_page == 'messages' %}bg-slate-900 text-white{% else %}text-slate-700 hover:text-slate-900{% endif %}">
+            <!-- Chat bubble icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="inline-block h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span id="navMsgBadge"
+                  class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[10px] font-bold text-white {% if not unread_message_count or unread_message_count == 0 %}hidden{% endif %}">
+              {% if unread_message_count %}{{ unread_message_count if unread_message_count < 10 else '9+' }}{% endif %}
+            </span>
+          </a>
+          {% endif %}
+
           <!-- Notification bell with unread badge -->
           <a href="{{ url_for('notifications') }}"
              class="relative rounded-xl px-3 py-2 text-sm font-semibold {% if active_page == 'notifications' %}bg-slate-900 text-white{% else %}text-slate-700 hover:text-slate-900{% endif %}">
@@ -73,11 +89,10 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
             <!-- Unread count badge — hidden when count is 0 -->
-            {% if unread_count and unread_count > 0 %}
-            <span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
-              {{ unread_count if unread_count < 10 else '9+' }}
+            <span id="navNotifBadge"
+                  class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white {% if not unread_count or unread_count == 0 %}hidden{% endif %}">
+              {% if unread_count %}{{ unread_count if unread_count < 10 else '9+' }}{% endif %}
             </span>
-            {% endif %}
           </a>
         </nav>
 
