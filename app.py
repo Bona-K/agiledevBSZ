@@ -10,13 +10,26 @@ from models import db, User, Follow, Notification
 from route_service import (
     RouteOwnershipError,
     RouteValidationError,
+    add_route_comment,
     create_route_from_payload,
     delete_route_for_owner,
     duplicate_route_for_user,
+    get_completed_route_ids_for_user,
     get_route_for_viewer,
+    get_saved_route_ids_for_user,
+    list_completed_routes_for_user,
     list_public_routes,
+    list_public_routes_for_author,
+    list_route_comments,
     list_routes_for_author,
+    list_saved_routes_for_user,
+    mark_route_completed_for_user,
+    save_route_for_user,
     serialize_route_for_client,
+    set_route_rating,
+    toggle_route_like,
+    unmark_route_completed_for_user,
+    unsave_route_for_user,
     update_route_for_owner,
 )
 from utils import check_password, hash_password
@@ -88,6 +101,7 @@ def seed_demo_users():
                 username      = account["username"],
                 email         = account["email"],
                 password_hash = hash_password(account["password"]),
+                display_name  = account.get("display_name", ""),
                 bio           = account["bio"],
             )
             db.session.add(user)
@@ -211,9 +225,25 @@ def ensure_route_cover_photo_url_column():
         db.session.rollback()
 
 
+def ensure_user_display_name_column():
+    """SQLite: add users.display_name if missing (db.create_all does not ALTER)."""
+    try:
+        if db.engine.dialect.name != "sqlite":
+            return
+        rows = db.session.execute(text("PRAGMA table_info(users)")).fetchall()
+        col_names = {row[1] for row in rows}
+        if "display_name" in col_names:
+            return
+        db.session.execute(text("ALTER TABLE users ADD COLUMN display_name VARCHAR(120) DEFAULT ''"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
 with app.app_context():
     db.create_all()
     ensure_route_cover_photo_url_column()
+    ensure_user_display_name_column()
     seed_demo_users()
 
 # ---------------------------------------------------------------------------
@@ -300,7 +330,8 @@ def signup():
             username      = username,
             email         = email,
             password_hash = hash_password(password),
-            bio           = f"Hi, I'm {name}.",
+            display_name  = name,
+            bio           = "",
         )
         db.session.add(new_user)
         db.session.commit()
@@ -368,9 +399,69 @@ def profile():
     return render_template(
         "profile.html",
         active_page="profile",
-        username=user.username if user else "—",
+        user=user,
         follower_count=follower_count,
         following_count=following_count,
+    )
+
+# ---------------------------------------------------------------------------
+# Edit profile
+# ---------------------------------------------------------------------------
+
+BIO_MAX_LENGTH = 500
+
+
+@app.route("/edit-profile", methods=["GET", "POST"])
+@login_required
+def edit_profile():
+    user = current_user()
+
+    if request.method == "POST":
+        display_name = request.form.get("displayName", "").strip()
+        bio          = request.form.get("bio", "").strip()
+
+        if not display_name:
+            return render_template(
+                "edit_profile.html",
+                active_page="profile",
+                error="Please enter your display name.",
+                display_name=display_name,
+                bio=bio,
+            )
+        if len(display_name) > 120:
+            return render_template(
+                "edit_profile.html",
+                active_page="profile",
+                error="Display name must be 120 characters or fewer.",
+                display_name=display_name,
+                bio=bio,
+            )
+        if len(bio) > BIO_MAX_LENGTH:
+            return render_template(
+                "edit_profile.html",
+                active_page="profile",
+                error=f"Bio must be {BIO_MAX_LENGTH} characters or fewer.",
+                display_name=display_name,
+                bio=bio,
+            )
+
+        user.display_name = display_name
+        user.bio          = bio
+        db.session.commit()
+
+        return render_template(
+            "edit_profile.html",
+            active_page="profile",
+            success="Profile updated successfully.",
+            display_name=user.display_name,
+            bio=user.bio or "",
+        )
+
+    return render_template(
+        "edit_profile.html",
+        active_page="profile",
+        display_name=user.display_name or "",
+        bio=user.bio or "",
     )
 
 # ---------------------------------------------------------------------------
@@ -465,7 +556,7 @@ def user_profile(username):
         is_following=is_following,
         follower_count=follower_count,
         following_count=following_count,
-        user_routes=[],  # Connected after team PR route_service merge
+        user_routes=list_public_routes_for_author(profile_user.id),
     )
 
 # ---------------------------------------------------------------------------
@@ -499,7 +590,7 @@ def api_create_route():
         return jsonify(ok=False, errors=exc.errors), 400
     except Exception:
         return jsonify(ok=False, errors={"": "Could not save route. Try again."}), 500
-    return jsonify(ok=True, route=serialize_route_for_client(route)), 201
+    return jsonify(ok=True, route=serialize_route_for_client(route, user.id)), 201
 
 
 @app.route("/api/routes/<int:route_id>", methods=["GET"])
@@ -511,7 +602,7 @@ def api_get_route(route_id):
     route = get_route_for_viewer(route_id, user.id)
     if route is None:
         return jsonify(ok=False, error="Not found."), 404
-    return jsonify(ok=True, route=serialize_route_for_client(route))
+    return jsonify(ok=True, route=serialize_route_for_client(route, user.id))
 
 
 @app.route("/api/routes/<int:route_id>", methods=["PATCH", "PUT"])
@@ -536,7 +627,7 @@ def api_update_route(route_id):
         return jsonify(ok=False, errors=exc.errors), 400
     except Exception:
         return jsonify(ok=False, errors={"": "Could not update route. Try again."}), 500
-    return jsonify(ok=True, route=serialize_route_for_client(route))
+    return jsonify(ok=True, route=serialize_route_for_client(route, user.id))
 
 
 @app.route("/api/routes/<int:route_id>", methods=["DELETE"])
@@ -572,7 +663,7 @@ def api_duplicate_route(route_id):
         return jsonify(ok=False, error="Could not duplicate route. Try again."), 500
     if cloned is None:
         return jsonify(ok=False, error="Not found."), 404
-    return jsonify(ok=True, route=serialize_route_for_client(cloned)), 201
+    return jsonify(ok=True, route=serialize_route_for_client(cloned, user.id)), 201
 
 
 @app.route("/api/my-routes", methods=["GET"])
@@ -582,7 +673,112 @@ def api_list_my_routes():
     if user is None:
         return jsonify(ok=False, error="Not signed in."), 401
     routes = list_routes_for_author(user.id)
-    return jsonify(ok=True, routes=[serialize_route_for_client(route) for route in routes])
+    return jsonify(
+        ok=True,
+        routes=[serialize_route_for_client(route, user.id) for route in routes],
+    )
+
+
+@app.route("/api/saved-route-ids", methods=["GET"])
+@login_required
+def api_saved_route_ids():
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    ids = get_saved_route_ids_for_user(user.id)
+    return jsonify(ok=True, savedIds=ids)
+
+
+@app.route("/api/saved-routes", methods=["GET"])
+@login_required
+def api_list_saved_routes():
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    routes = list_saved_routes_for_user(user.id)
+    saved_ids = get_saved_route_ids_for_user(user.id)
+    return jsonify(
+        ok=True,
+        savedIds=saved_ids,
+        routes=[serialize_route_for_client(route, user.id) for route in routes],
+    )
+
+
+@app.route("/api/completed-route-ids", methods=["GET"])
+@login_required
+def api_completed_route_ids():
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    ids = get_completed_route_ids_for_user(user.id)
+    return jsonify(ok=True, completedIds=ids)
+
+
+@app.route("/api/completed-routes", methods=["GET"])
+@login_required
+def api_list_completed_routes():
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    routes = list_completed_routes_for_user(user.id)
+    completed_ids = get_completed_route_ids_for_user(user.id)
+    return jsonify(
+        ok=True,
+        completedIds=completed_ids,
+        routes=[serialize_route_for_client(route, user.id) for route in routes],
+    )
+
+
+@app.route("/api/routes/<int:route_id>/save", methods=["POST"])
+@login_required
+def api_save_route(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    if not save_route_for_user(user.id, route_id):
+        return jsonify(ok=False, error="Not found."), 404
+    return jsonify(ok=True, saved=True, savedIds=get_saved_route_ids_for_user(user.id))
+
+
+@app.route("/api/routes/<int:route_id>/save", methods=["DELETE"])
+@login_required
+def api_unsave_route(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    if not unsave_route_for_user(user.id, route_id):
+        return jsonify(ok=False, error="Not saved."), 404
+    return jsonify(ok=True, saved=False, savedIds=get_saved_route_ids_for_user(user.id))
+
+
+@app.route("/api/routes/<int:route_id>/complete", methods=["POST"])
+@login_required
+def api_mark_route_complete(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    if not mark_route_completed_for_user(user.id, route_id):
+        return jsonify(ok=False, error="Not found."), 404
+    return jsonify(
+        ok=True,
+        completed=True,
+        completedIds=get_completed_route_ids_for_user(user.id),
+    )
+
+
+@app.route("/api/routes/<int:route_id>/complete", methods=["DELETE"])
+@login_required
+def api_unmark_route_complete(route_id):
+    user = current_user()
+    if user is None:
+        return jsonify(ok=False, error="Not signed in."), 401
+    if not unmark_route_completed_for_user(user.id, route_id):
+        return jsonify(ok=False, error="Not completed."), 404
+    return jsonify(
+        ok=True,
+        completed=False,
+        completedIds=get_completed_route_ids_for_user(user.id),
+    )
 
 
 @app.route("/api/routes/public", methods=["GET"])
@@ -785,13 +981,18 @@ def route_detail(route_id):
         route_obj = get_route_for_viewer(rid, user.id if user else None)
         if route_obj is None:
             abort(404)
-        author_username = route_obj.author.username if route_obj.author else "—"
-        route_payload = serialize_route_for_client(route_obj)
+        if route_obj.author:
+            author_username = route_obj.author.username
+            author_label = (route_obj.author.display_name or "").strip() or author_username
+        else:
+            author_username = ""
+            author_label = "—"
+        route_payload = serialize_route_for_client(route_obj, user.id if user else None)
         route_dict = {
             "id":          str(route_obj.id),
             "title":       route_obj.title,
             "theme":       route_obj.theme,
-            "author":      author_username,
+            "author":      author_label,
             "meta":        f"{len(route_obj.locations)} stops · public" if route_obj.is_public else f"{len(route_obj.locations)} stops · private",
             "description": route_obj.description,
             "tags":        list(route_obj.tags or []),

@@ -93,17 +93,23 @@
     let users = readStore(STORAGE_KEYS.users, []);
     let user = users.find((entry) => entry.username === username);
 
+    const displayName = String(bootstrap.displayName || username).trim();
+    const bio = String(bootstrap.bio || "");
+
     if (!user) {
       user = {
         id: "u_" + Math.floor(Math.random() * 1000000),
-        name: username,
+        name: displayName,
         username,
-        bio: "No bio yet.",
+        bio,
         joinedAt: nowIso(),
       };
       users = users.concat(user);
-      writeStore(STORAGE_KEYS.users, users);
+    } else {
+      user.name = displayName;
+      user.bio = bio;
     }
+    writeStore(STORAGE_KEYS.users, users);
 
     const nextSession = {
       userId: user.id,
@@ -192,7 +198,14 @@
       ]);
     }
 
-    if (!saved) writeStore(STORAGE_KEYS.saved, ["r_1"]);
+    syncSessionWithServer();
+    const bootstrapAfterSync = serverBootstrap();
+    if (saved === null) {
+      writeStore(
+        STORAGE_KEYS.saved,
+        bootstrapAfterSync.isAuthenticated ? [] : ["r_1"]
+      );
+    }
 
     if (!locations) {
       writeStore(STORAGE_KEYS.locations, [
@@ -203,6 +216,78 @@
     }
 
     syncSessionWithServer();
+  }
+
+  function formatRouteRating(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "—";
+    return String(n);
+  }
+
+  function normalizeServerRoute(r) {
+    if (!r || typeof r !== "object") return null;
+    return { ...r, id: String(r.id), authorId: r.authorId };
+  }
+
+  async function fetchSavedRouteIds() {
+    const bootstrap = serverBootstrap();
+    if (!bootstrap.isAuthenticated) {
+      return readStore(STORAGE_KEYS.saved, []);
+    }
+    try {
+      const data = await fetchJson("api/saved-route-ids");
+      const ids = Array.isArray(data?.savedIds) ? data.savedIds.map((id) => String(id)) : [];
+      writeStore(STORAGE_KEYS.saved, ids);
+      return ids;
+    } catch {
+      return readStore(STORAGE_KEYS.saved, []);
+    }
+  }
+
+  async function fetchSavedRoutes() {
+    const bootstrap = serverBootstrap();
+    if (!bootstrap.isAuthenticated) {
+      const allSaved = readStore(STORAGE_KEYS.saved, []);
+      const allRoutes = readStore(STORAGE_KEYS.routes, []);
+      const savedSet = new Set((allSaved || []).map(String));
+      return {
+        routes: allRoutes.filter((r) => savedSet.has(String(r.id))),
+        savedIds: allSaved,
+      };
+    }
+    try {
+      const data = await fetchJson("api/saved-routes");
+      const routes = (Array.isArray(data?.routes) ? data.routes : [])
+        .map(normalizeServerRoute)
+        .filter(Boolean);
+      const savedIds = Array.isArray(data?.savedIds)
+        ? data.savedIds.map((id) => String(id))
+        : routes.map((r) => r.id);
+      writeStore(STORAGE_KEYS.saved, savedIds);
+      return { routes, savedIds };
+    } catch {
+      return { routes: [], savedIds: [] };
+    }
+  }
+
+  async function fetchCompletedRoutes() {
+    const bootstrap = serverBootstrap();
+    if (!bootstrap.isAuthenticated) {
+      return { routes: [], completedIds: [] };
+    }
+    try {
+      const data = await fetchJson("api/completed-routes");
+      const routes = (Array.isArray(data?.routes) ? data.routes : [])
+        .map(normalizeServerRoute)
+        .filter(Boolean);
+      const completedIds = Array.isArray(data?.completedIds)
+        ? data.completedIds.map((id) => String(id))
+        : routes.map((r) => r.id);
+      return { routes, completedIds };
+    } catch {
+      return { routes: [], completedIds: [] };
+    }
   }
 
   function getSession() {
@@ -236,13 +321,13 @@
       .join("");
   }
 
-  function showToast(message, tone = "info") {
+  function showToast(message, tone = "info", durationMs = 2200) {
     const $toast = $("#toast");
     if ($toast.length === 0) return;
     const color = tone === "success" ? "bg-emerald-600" : tone === "error" ? "bg-rose-600" : "bg-slate-900";
     $toast.removeClass("bg-emerald-600 bg-rose-600 bg-slate-900").addClass(color).find("[data-toast-text]").text(message);
     $toast.addClass("is-visible");
-    global.setTimeout(() => $toast.removeClass("is-visible"), 2200);
+    global.setTimeout(() => $toast.removeClass("is-visible"), durationMs);
   }
 
   // Shared header behavior for authenticated pages.
@@ -331,11 +416,6 @@
     return options[sum % options.length];
   }
 
-  function estimateHours(route) {
-    const stops = Number(route.locations?.length || 0);
-    return (Math.max(stops, 1) * 0.7 + 0.7).toFixed(1);
-  }
-
   function normalizeRouteCoverUrl(raw) {
     const s = String(raw || "").trim();
     if (!s) return null;
@@ -351,6 +431,30 @@
     return ROUTE_CARD_DEFAULT_COVER;
   }
 
+  function isServerRouteId(routeId) {
+    return /^\d+$/.test(String(routeId || ""));
+  }
+
+  async function fetchPublicRoutes() {
+    const bootstrap = serverBootstrap();
+    if (!bootstrap.isAuthenticated) {
+      return readStore(STORAGE_KEYS.routes, []).filter((r) => r.isPublic);
+    }
+    try {
+      const data = await fetchJson("api/routes/public");
+      return (Array.isArray(data?.routes) ? data.routes : [])
+        .map(normalizeServerRoute)
+        .filter(Boolean);
+    } catch {
+      return readStore(STORAGE_KEYS.routes, []).filter((r) => r.isPublic);
+    }
+  }
+
+  function applyLikeButtonState($btn, liked, likes) {
+    $btn.toggleClass("is-liked", Boolean(liked));
+    $btn.find("[data-like-count]").text(Number(likes || 0));
+  }
+
   // Shared interaction used by any page rendering route cards.
   function bindRouteLikeInteractions() {
     $("body")
@@ -358,12 +462,32 @@
       .on("click.routeLike", ".routeLikeBtn", function onLike(e) {
         e.preventDefault();
         e.stopPropagation();
-        const routeId = String($(this).attr("data-route-id") || "");
+        const $btn = $(this);
+        const routeId = String($btn.attr("data-route-id") || "");
         if (!routeId) return;
+
+        const bootstrap = serverBootstrap();
+        if (isServerRouteId(routeId) && bootstrap.isAuthenticated) {
+          void (async () => {
+            try {
+              const data = await fetchJson(`api/routes/${encodeURIComponent(routeId)}/like`, {
+                method: "POST",
+              });
+              const liked = Boolean(data.userLiked ?? data.liked);
+              const likes = Number(data.likes || 0);
+              applyLikeButtonState($btn, liked, likes);
+              $(document).trigger("mv:routeLikeChanged", [{ routeId, likes, userLiked: liked }]);
+            } catch (err) {
+              if (err.status === 401) showToast("Please sign in first.", "error");
+              else showToast(err.body?.error || err.message || "Could not update like.", "error");
+            }
+          })();
+          return;
+        }
 
         const routes = readStore(STORAGE_KEYS.routes, []);
         const likedIds = new Set(readStore("mv_liked_route_ids", []));
-        const route = routes.find((r) => r.id === routeId);
+        const route = routes.find((r) => String(r.id) === routeId);
         if (!route) return;
 
         let nextLiked = false;
@@ -378,9 +502,10 @@
 
         writeStore(STORAGE_KEYS.routes, routes);
         writeStore("mv_liked_route_ids", Array.from(likedIds));
-        const $btn = $(this);
-        $btn.toggleClass("is-liked", nextLiked);
-        $btn.find("[data-like-count]").text(route.likes);
+        applyLikeButtonState($btn, nextLiked, route.likes);
+        $(document).trigger("mv:routeLikeChanged", [
+          { routeId, likes: route.likes, userLiked: nextLiked },
+        ]);
       });
   }
 
@@ -404,10 +529,13 @@
       "Unknown";
     const initialsSource = author && author.name ? author.name : authorLabel;
     const avatarTone = userAvatarTone(author || { username: authorLabel });
-    const savedSet = new Set(savedIds || []);
-    const saved = savedSet.has(route.id);
+    const savedSet = new Set((savedIds || []).map(String));
+    const saved = savedSet.has(String(route.id));
     const likedIds = new Set(readStore("mv_liked_route_ids", []));
-    const isLiked = likedIds.has(route.id);
+    const isLiked =
+      isServerRouteId(route.id) && route.userLiked !== undefined
+        ? Boolean(route.userLiked)
+        : likedIds.has(String(route.id));
     const themeKey = normalizeTheme(route.theme);
     const visual = themeVisual(themeKey);
     const badge = routeBadge(route);
@@ -463,8 +591,8 @@
     const authorName = author
       ? author.name
       : String(route.authorUsername || "").trim() || "Unknown";
-    const savedSet = new Set(savedIds || []);
-    const saved = savedSet.has(route.id);
+    const savedSet = new Set((savedIds || []).map(String));
+    const saved = savedSet.has(String(route.id));
     const tags = (route.tags || []).slice(0, 3);
     const tagHtml = tags
       .map((t) => `<span class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">#${escapeHtml(t)}</span>`)
@@ -528,6 +656,12 @@
     topTheme,
     appUrl,
     fetchJson,
+    normalizeServerRoute,
+    fetchSavedRouteIds,
+    fetchSavedRoutes,
+    fetchCompletedRoutes,
+    fetchPublicRoutes,
+    isServerRouteId,
     routeDetailUrl,
     createRouteUrl,
     routeCardHtml,

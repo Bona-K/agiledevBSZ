@@ -31,6 +31,15 @@
     writeCommentsStore(store);
   }
 
+  function normalizeCommentRow(c) {
+    if (!c || typeof c !== "object") return null;
+    const text = String(c.text ?? "").trim();
+    if (!text) return null;
+    const author = String(c.author ?? "Unknown").trim() || "Unknown";
+    const createdAt = c.createdAt || C.nowIso();
+    return { author, text, createdAt };
+  }
+
   function timeAgoLabel(iso) {
     const ts = new Date(iso).getTime();
     if (!Number.isFinite(ts)) return "just now";
@@ -43,18 +52,17 @@
     return `${diffDay}d ago`;
   }
 
-  function renderComments(routeId) {
-    const list = routeComments(routeId);
-    if (!list.length) {
+  function renderCommentsList(list) {
+    const rows = (Array.isArray(list) ? list : []).map(normalizeCommentRow).filter(Boolean);
+    rows.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    if (!rows.length) {
       $("#commentList").html(
         `<div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">No comments yet. Be the first to comment.</div>`
       );
       return;
     }
     $("#commentList").html(
-      list
-        .slice()
-        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      rows
         .map(
           (c) => `
         <div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
@@ -65,6 +73,53 @@
         )
         .join("")
     );
+  }
+
+  async function refreshRouteComments(routeId, numericId, boot) {
+    if (numericId && boot.isAuthenticated) {
+      try {
+        const data = await C.fetchJson(`api/routes/${encodeURIComponent(routeId)}/comments`);
+        renderCommentsList(data.comments || []);
+      } catch (err) {
+        if (err.status === 404) {
+          renderCommentsList([]);
+          return;
+        }
+        renderCommentsList([]);
+        C.showToast(err.body?.error || err.message || "Could not load comments.", "error");
+      }
+      return;
+    }
+    const local = routeComments(routeId)
+      .map((c) => ({
+        author: c.author,
+        text: c.text,
+        createdAt: c.createdAt,
+      }))
+      .filter((c) => c.text);
+    renderCommentsList(local);
+  }
+
+  function formatRatingLabel(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "—";
+    return String(n);
+  }
+
+  function updateLikeButton(route) {
+    const count = Number(route.likes || 0);
+    const liked = Boolean(route.userLiked);
+    const $btn = $("#btnLike");
+    $btn.toggleClass("border-rose-300 bg-rose-50 text-rose-700", liked);
+    $btn.text(liked ? `❤ Liked (${count})` : `❤ Like (${count})`);
+  }
+
+  function updateCompletedButton(route) {
+    const done = Boolean(route.userCompleted);
+    const $btn = $("#btnCompleted");
+    $btn.text(done ? "Mark as incomplete" : "Mark as completed");
+    $btn.toggleClass("border-emerald-300 bg-emerald-50 text-emerald-900", done);
   }
 
   function renderSimilarRoutes(route, routes) {
@@ -113,9 +168,13 @@
 
     const users = C.readStore(C.STORAGE_KEYS.users, []);
     const routes = C.readStore(C.STORAGE_KEYS.routes, []);
-    const saved = C.readStore(C.STORAGE_KEYS.saved, []);
+    let saved = C.readStore(C.STORAGE_KEYS.saved, []);
     const session = C.getSession();
     const boot = window.MYVIBE_BOOTSTRAP || {};
+
+    if (boot.isAuthenticated && C.fetchSavedRouteIds) {
+      saved = await C.fetchSavedRouteIds();
+    }
 
     const pathParts = window.location.pathname.split("/").filter(Boolean);
     const pathRouteId = pathParts[0] === "route" ? decodeURIComponent(pathParts[1] || "") : "";
@@ -147,12 +206,22 @@
     }
 
     const author = users.find((u) => u.id === route.authorId);
-    const authorLabel = route.authorUsername || (author ? author.username || author.name : "Unknown");
+    const authorUsername =
+      String(route.authorUsername || "").trim() ||
+      (author ? String(author.username || "").trim() : "");
+    const authorLabel =
+      String(route.authorDisplayName || "").trim() ||
+      (author ? String(author.name || author.username || "").trim() : "") ||
+      authorUsername ||
+      "Unknown";
     $("#routeTitle").text(route.title);
     $("#routeTheme").text(route.theme);
     $("#routeAuthor").text(authorLabel);
-    if (authorLabel && authorLabel !== "Unknown") {
-      $("#routeAuthorLink").attr("href", C.appUrl(`user/${encodeURIComponent(String(authorLabel).toLowerCase())}`));
+    if (authorUsername) {
+      $("#routeAuthorLink").attr(
+        "href",
+        C.appUrl(`user/${encodeURIComponent(authorUsername.toLowerCase())}`)
+      );
     } else {
       $("#routeAuthorLink").attr("href", "#");
     }
@@ -198,9 +267,9 @@
       .join("");
     $("#routeLocations").html(locHtml);
     renderSimilarRoutes(route, routes);
-    renderComments(route.id);
+    await refreshRouteComments(route.id, numericId, boot);
 
-    const savedSet = new Set(saved || []);
+    const savedSet = new Set((saved || []).map(String));
     C.updateRouteButtons(route, savedSet);
     let isOwner = false;
     if (numericId && boot.userId != null) {
@@ -213,20 +282,59 @@
       $("#btnEditRoute").attr("href", C.createRouteUrl(route.id, "edit"));
     }
 
-    $("#btnLike").on("click", () => {
+    $("#btnLike").on("click", async () => {
+      const routeKey = String(route.id);
+      if (numericId && boot.isAuthenticated) {
+        try {
+          const data = await C.fetchJson(`api/routes/${encodeURIComponent(routeKey)}/like`, {
+            method: "POST",
+          });
+          route.likes = Number(data.likes || 0);
+          route.userLiked = Boolean(data.userLiked ?? data.liked);
+          updateLikeButton(route);
+          C.showToast(route.userLiked ? "Route liked." : "Like removed.", "success");
+        } catch (err) {
+          if (err.status === 401) C.showToast("Please sign in first.", "error");
+          else C.showToast(err.body?.error || err.message || "Could not update like.", "error");
+        }
+        return;
+      }
       route.likes = (route.likes || 0) + 1;
       C.writeStore(C.STORAGE_KEYS.routes, routes);
+      updateLikeButton(route);
       C.showToast("Liked (mock).", "success");
     });
 
-    $("#btnSave").on("click", () => {
-      const set = new Set(C.readStore(C.STORAGE_KEYS.saved, []));
-      if (set.has(route.id)) set.delete(route.id);
-      else set.add(route.id);
+    $("#btnSave").on("click", async () => {
+      const routeKey = String(route.id);
+      if (numericId && boot.isAuthenticated) {
+        const wasSaved = savedSet.has(routeKey);
+        try {
+          if (wasSaved) {
+            await C.fetchJson(`api/routes/${encodeURIComponent(routeKey)}/save`, { method: "DELETE" });
+          } else {
+            await C.fetchJson(`api/routes/${encodeURIComponent(routeKey)}/save`, { method: "POST" });
+          }
+          saved = await C.fetchSavedRouteIds();
+          const nextSet = new Set(saved.map(String));
+          savedSet.clear();
+          nextSet.forEach((id) => savedSet.add(id));
+          C.updateRouteButtons(route, savedSet);
+          C.showToast(wasSaved ? "Removed from saved." : "Route saved.", "success");
+        } catch (err) {
+          C.showToast(err.body?.error || err.message || "Could not update saved routes.", "error");
+        }
+        return;
+      }
+      const set = new Set((C.readStore(C.STORAGE_KEYS.saved, []) || []).map(String));
+      if (set.has(routeKey)) set.delete(routeKey);
+      else set.add(routeKey);
       const arr = Array.from(set);
       C.writeStore(C.STORAGE_KEYS.saved, arr);
-      C.updateRouteButtons(route, set);
-      C.showToast(set.has(route.id) ? "Saved (mock)." : "Removed from saved (mock).", "success");
+      savedSet.clear();
+      arr.forEach((id) => savedSet.add(id));
+      C.updateRouteButtons(route, savedSet);
+      C.showToast(savedSet.has(routeKey) ? "Saved (mock)." : "Removed from saved (mock).", "success");
     });
 
     $("#btnShare").on("click", async () => {
@@ -239,10 +347,26 @@
       }
     });
 
-    $("#btnCmt").on("click", () => {
+    $("#btnCmt").on("click", async () => {
       const text = String($("#cmt").val() || "").trim();
       if (!text) {
         C.showToast("Please enter a comment.", "error");
+        return;
+      }
+      if (numericId && boot.isAuthenticated) {
+        try {
+          await C.fetchJson(`api/routes/${encodeURIComponent(route.id)}/comments`, {
+            method: "POST",
+            body: { text },
+          });
+          $("#cmt").val("");
+          await refreshRouteComments(route.id, numericId, boot);
+          C.showToast("Comment added.", "success");
+        } catch (err) {
+          if (err.status === 401) C.showToast("Please sign in first.", "error");
+          else if (err.body?.errors?.text) C.showToast(err.body.errors.text, "error");
+          else C.showToast(err.body?.error || err.message || "Could not post comment.", "error");
+        }
         return;
       }
       const next = routeComments(route.id);
@@ -253,7 +377,7 @@
       });
       saveRouteComments(route.id, next);
       $("#cmt").val("");
-      renderComments(route.id);
+      await refreshRouteComments(route.id, numericId, boot);
       C.showToast("Comment added.", "success");
     });
 
@@ -299,17 +423,67 @@
       }, 350);
     });
 
-    $("#btnCompleted").on("click", () => C.showToast("Marked as completed.", "success"));
-    $("#btnSubmitRating").on("click", () => {
+    $("#btnCompleted").on("click", async () => {
+      if (numericId && boot.isAuthenticated) {
+        const wasDone = Boolean(route.userCompleted);
+        try {
+          if (wasDone) {
+            await C.fetchJson(`api/routes/${encodeURIComponent(route.id)}/complete`, {
+              method: "DELETE",
+            });
+            route.userCompleted = false;
+            C.showToast("Marked as incomplete.", "success");
+          } else {
+            await C.fetchJson(`api/routes/${encodeURIComponent(route.id)}/complete`, {
+              method: "POST",
+            });
+            route.userCompleted = true;
+            C.showToast("Marked as completed.", "success");
+          }
+          updateCompletedButton(route);
+        } catch (err) {
+          if (err.status === 401) C.showToast("Please sign in first.", "error");
+          else C.showToast(err.body?.error || err.message || "Could not update completion.", "error");
+        }
+        return;
+      }
+      route.userCompleted = !Boolean(route.userCompleted);
+      updateCompletedButton(route);
+      C.showToast(route.userCompleted ? "Marked as completed." : "Marked as incomplete.", "success");
+    });
+    $("#btnSubmitRating").on("click", async () => {
       const rating = String($("#ratingSelect").val() || "").trim();
       if (!rating) {
-        C.showToast("Please choose a rating first.", "error");
+        C.showToast("Please choose a rating from 1 to 5.", "error");
+        return;
+      }
+      const score = Number(rating);
+      if (!Number.isInteger(score) || score < 1 || score > 5) {
+        C.showToast("Rating must be between 1 and 5.", "error");
+        return;
+      }
+      if (numericId && boot.isAuthenticated) {
+        try {
+          const data = await C.fetchJson(`api/routes/${encodeURIComponent(String(route.id))}/rating`, {
+            method: "POST",
+            body: { rating: score },
+          });
+          route.rating = data.rating;
+          route.userRating = data.userRating;
+          const label = route.createdAt ? C.formatDate(route.createdAt) : "—";
+          $("#routeMeta").text(
+            `${label} · ${route.locations.length} stops · ★ ${formatRatingLabel(route.rating)}`
+          );
+          C.showToast("Rating saved.", "success");
+        } catch (err) {
+          if (err.status === 401) C.showToast("Please sign in first.", "error");
+          else if (err.body?.errors?.rating) C.showToast(err.body.errors.rating, "error");
+          else C.showToast(err.body?.error || err.message || "Could not save rating.", "error");
+        }
         return;
       }
       C.showToast(`Rating submitted: ${rating}/5.`, "success");
     });
-    $("#btnReport").on("click", () => C.showToast("Report submitted. Thanks for your feedback.", "success"));
-
     $("#btnDeleteRoute").on("click", async () => {
       if (!isOwner) return;
       if (!window.confirm("Delete this route? This action cannot be undone.")) return;
