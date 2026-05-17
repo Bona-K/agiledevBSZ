@@ -60,6 +60,26 @@
 
   <section class="mt-6 grid gap-6 lg:grid-cols-[1fr,320px]">
     <section>
+      <!-- Interactive map -->
+      <div id="routeMapCard" class="route-map-card mb-6">
+        <div class="route-map-card__head">
+          <div class="route-map-card__title">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            <span>Route map</span>
+          </div>
+          <div id="routeMapCount" class="route-map-card__count">—</div>
+        </div>
+        <div id="routeMap" role="application" aria-label="Interactive map of route stops"></div>
+        <div id="routeMapEmpty" class="route-map-empty hidden">
+          <div class="route-map-empty__emoji">🗺️</div>
+          <div class="route-map-empty__title">No coordinates yet</div>
+          <div class="route-map-empty__copy">Add latitude &amp; longitude to your stops to see them on the map.</div>
+        </div>
+      </div>
+
       <div class="flex items-end justify-between gap-6">
         <div>
           <h2 class="text-lg font-semibold text-slate-900">Locations timeline</h2>
@@ -139,4 +159,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/pages/route.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/route-map.js') }}"></script>
 {% endblock %}

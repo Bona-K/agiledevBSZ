@@ -11,7 +11,7 @@
     saved: "mv_saved_route_ids",
     locations: "mv_saved_locations",
   };
-  const MOCK_VERSION = 3;
+  const MOCK_VERSION = 4;
 
   /** One shared cover for cards when no custom image or when the image fails to load. */
   const ROUTE_CARD_DEFAULT_COVER =
@@ -152,9 +152,9 @@
           rating: 4.6,
           createdAt: "2026-03-22T09:20:00.000Z",
           locations: [
-            { order: 1, time: "10:30", name: "Cafe stop", desc: "Easy chat to set the vibe.", parking: "<500m" },
-            { order: 2, time: "12:00", name: "Riverside walk", desc: "Slow walk by the river and take photos.", parking: "<1km" },
-            { order: 3, time: "18:10", name: "Sunset lookout", desc: "Arrive 10 minutes early for golden hour.", parking: "<500m" },
+            { order: 1, time: "10:30", name: "Cafe stop", desc: "Easy chat to set the vibe.", parking: "<500m", lat: -31.9523, lng: 115.8613 },
+            { order: 2, time: "12:00", name: "Riverside walk", desc: "Slow walk by the river and take photos.", parking: "<1km", lat: -31.9587, lng: 115.8541 },
+            { order: 3, time: "18:10", name: "Sunset lookout", desc: "Arrive 10 minutes early for golden hour.", parking: "<500m", lat: -31.9614, lng: 115.8472 },
           ],
         },
         {
@@ -169,8 +169,8 @@
           rating: 4.2,
           createdAt: "2026-03-23T14:05:00.000Z",
           locations: [
-            { order: 1, time: "11:00", name: "Groceries", desc: "Buy drinks and snacks.", parking: "<500m" },
-            { order: 2, time: "12:00", name: "Big park", desc: "Bring a picnic mat and find shade.", parking: "<1km" },
+            { order: 1, time: "11:00", name: "Groceries", desc: "Buy drinks and snacks.", parking: "<500m", lat: -27.4698, lng: 153.0251 },
+            { order: 2, time: "12:00", name: "Big park", desc: "Bring a picnic mat and find shade.", parking: "<1km", lat: -27.4762, lng: 153.0297 },
           ],
         },
         {
@@ -185,8 +185,8 @@
           rating: 4.8,
           createdAt: "2026-03-24T08:40:00.000Z",
           locations: [
-            { order: 1, time: "15:30", name: "Quiet viewpoint", desc: "Can be windy, bring a jacket.", parking: "<500m" },
-            { order: 2, time: "17:45", name: "Small cafe", desc: "Warm drink to end the day.", parking: "<1km" },
+            { order: 1, time: "15:30", name: "Quiet viewpoint", desc: "Can be windy, bring a jacket.", parking: "<500m", lat: -33.8568, lng: 151.2153 },
+            { order: 2, time: "17:45", name: "Small cafe", desc: "Warm drink to end the day.", parking: "<1km", lat: -33.8688, lng: 151.2093 },
           ],
         },
       ]);

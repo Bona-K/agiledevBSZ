@@ -990,3 +990,153 @@ body.app-bg:not([data-page="home"]) {
 
 /* Loader: wrap the img so we can scale the wrapper; the inner img still runs its entrance animation */
 /* loader wrapper removed */
+
+/* ============================================================
+   ROUTE MAP (Leaflet) — glass-themed
+   ============================================================ */
+.route-map-card {
+  padding: 18px;
+  border-radius: 24px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  position: relative;
+}
+.route-map-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 0 6px;
+}
+.route-map-card__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+.route-map-card__title svg {
+  width: 16px;
+  height: 16px;
+  color: #ec4899;
+}
+.route-map-card__count {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+#routeMap {
+  width: 100%;
+  height: 360px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  background: rgba(248, 250, 252, 0.6);
+}
+
+/* Empty state when no locations have coordinates */
+.route-map-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 28px 20px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px dashed rgba(15, 23, 42, 0.12);
+  margin-top: 12px;
+}
+.route-map-empty__emoji { font-size: 28px; margin-bottom: 8px; }
+.route-map-empty__title { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+.route-map-empty__copy { font-size: 12px; color: #64748b; max-width: 320px; line-height: 1.5; }
+
+/* Branded numbered marker */
+.route-map-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--brand-gradient-135);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.35);
+}
+
+/* Override Leaflet's default popup look to feel glass-y */
+.leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.95) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
+  border-radius: 14px !important;
+  box-shadow: 0 8px 28px rgba(31, 38, 135, 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+.leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.95) !important;
+}
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  color: #0f172a !important;
+  line-height: 1.5 !important;
+}
+.leaflet-popup-content .map-popup__title {
+  font-weight: 800;
+  font-size: 13px;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+.leaflet-popup-content .map-popup__meta {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+  font-size: 18px !important;
+  padding: 6px 8px 0 0 !important;
+}
+.leaflet-popup-close-button:hover { color: #0f172a !important; }
+
+/* Tone down Leaflet's default attribution so it doesn't fight the glass aesthetic */
+.leaflet-container .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.78) !important;
+  font-size: 10px !important;
+  color: #64748b !important;
+  border-radius: 6px 0 0 0;
+}
+.leaflet-control-attribution a { color: #ec4899 !important; }
+
+/* Zoom controls — round, glass-y */
+.leaflet-touch .leaflet-bar a,
+.leaflet-bar a {
+  background: rgba(255, 255, 255, 0.85) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #0f172a !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  font-size: 18px !important;
+  font-weight: 700;
+}
+.leaflet-bar a:first-child { border-top-left-radius: 10px !important; border-top-right-radius: 10px !important; }
+.leaflet-bar a:last-child { border-bottom-left-radius: 10px !important; border-bottom-right-radius: 10px !important; }
+.leaflet-bar a:hover { background: rgba(255, 255, 255, 1) !important; color: #ec4899 !important; }
